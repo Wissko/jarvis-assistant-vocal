@@ -31,6 +31,7 @@ fully **offline local mode** (Ollama + Piper) — your choice, one line of confi
 - 🌐 **Browser assistant** — summarize/translate the active tab, manage tabs, act on pages (your real Chrome)
 - 📞 **Phone calls** — Twilio: play a message, or a real-time conversation (make a reservation by phone)
 - 🧠 **Long-term memory** — remembers your preferences, people, projects
+- 📱 **iPhone bridge** — send ideas/notes and commands from the Shortcuts app (Siri as a remote control)
 - 🎭 **Personalities** — sarcastic butler, neutral, concise — switch by voice
 - 🏠 **Presence** — pings your phone, triggers scenes when you leave/return
 - 🌤️ **Utilities** — weather, timers, time/date
@@ -133,6 +134,7 @@ Everything lives in a single **untracked** `config.yaml` (copy from
 | Web reservations | [docs/reservation.md](docs/reservation.md) |
 | Instagram | [docs/instagram.md](docs/instagram.md) |
 | MCP server | [docs/mcp.md](docs/mcp.md) |
+| iPhone bridge (Shortcuts) | [docs/iphone.md](docs/iphone.md) |
 | **Perceived latency (UX)** | [docs/latency.md](docs/latency.md) |
 
 ## 🛡️ Ethics & Safety
@@ -149,7 +151,7 @@ Trust is built in, not bolted on:
 ## 🗺️ Roadmap
 
 - [ ] Godox video-light control (currently Hue only)
-- [ ] Notes & reminders tools
+- [x] Notes / ideas (+ iPhone bridge via Shortcuts) — scheduled reminders next
 - [ ] Sentence-by-sentence streaming TTS (see [docs/latency.md](docs/latency.md))
 - [ ] 100% local browser loop: `qwen3.5` vision already reads button text (tested) — full page-driving still to validate
 - [ ] Automatic Instagram token refresh across restarts (partial today)

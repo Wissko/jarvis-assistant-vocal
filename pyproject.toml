@@ -12,6 +12,7 @@ dependencies = [
     "audioop-lts>=0.2.2",
     "ddgs>=9.14.4",
     "discord-py>=2.7.1",
+    "fastapi>=0.141.1",
     "faster-whisper>=1.2.1",
     "google-api-python-client>=2.198.0",
     "google-auth-httplib2>=0.4.1",

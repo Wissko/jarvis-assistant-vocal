@@ -116,6 +116,11 @@ agenda:                        # Google Agenda, API officielle OAuth2 (voir docs
 loopstr:                        # echeances de partenariats via flux iCal (voir docs/agenda.md)
   url: ""                       # URL du flux iCal Loopstr (donnees perso, non exposees via MCP)
 
+pont_iphone:                   # envoyer notes/commandes depuis l'iPhone (Raccourcis) ; voir docs/iphone.md
+  actif: false                 # true = lance le serveur d'ingestion au demarrage
+  token: ""                    # SECRET : en-tete X-Jarvis-Token (genere une longue chaine aleatoire)
+  port: 8790                   # port local ; expose-le via ton domaine ngrok statique
+
 navigateur:                    # assistance sur TON Chrome (voir docs/navigateur.md)
   cdp_port: 9222               # port de debug (raccourci "Chrome + Jarvis")
   domaines_proteges:           # sites ou Jarvis LIT mais n'AGIT jamais (fais-le toi-meme)

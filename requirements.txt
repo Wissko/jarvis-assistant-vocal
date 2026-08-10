@@ -11,6 +11,8 @@ aiohttp-retry==2.9.1
     # via twilio
 aiosignal==1.4.0
     # via aiohttp
+annotated-doc==0.0.5
+    # via fastapi
 annotated-types==0.8.0
     # via pydantic
 anthropic==0.120.2
@@ -76,6 +78,8 @@ docstring-parser==0.18.0
     # via anthropic
 fake-useragent==2.2.0
     # via ddgs
+fastapi==0.141.1
+    # via jarvis-vocal
 faster-whisper==1.2.1
     # via jarvis-vocal
 filelock==3.32.2
@@ -244,6 +248,7 @@ pycparser==3.0 ; implementation_name != 'PyPy'
 pydantic==2.13.4
     # via
     #   anthropic
+    #   fastapi
     #   mcp
     #   mcp-types
     #   ollama
@@ -306,6 +311,7 @@ sse-starlette==3.4.8
     # via mcp
 starlette==1.4.1
     # via
+    #   fastapi
     #   mcp
     #   sse-starlette
 threadpoolctl==3.6.0
@@ -327,6 +333,7 @@ twilio==9.10.9
 typing-extensions==4.16.0
     # via
     #   anthropic
+    #   fastapi
     #   huggingface-hub
     #   mcp
     #   mcp-types
@@ -337,6 +344,7 @@ typing-extensions==4.16.0
     #   typing-inspection
 typing-inspection==0.4.2
     # via
+    #   fastapi
     #   mcp
     #   pydantic
 tzdata==2026.3

@@ -32,6 +32,7 @@ une ligne de config : **cloud** (Claude + ElevenLabs) ou **100 % local hors lign
 - 🌐 **Assistant navigateur** — résume/traduit l'onglet actif, gère les onglets, agit sur les pages (ton vrai Chrome)
 - 📞 **Appels téléphoniques** — Twilio : jouer un message, ou une vraie conversation temps réel
 - 🧠 **Mémoire long terme** — retient tes préférences, tes proches, tes projets
+- 📱 **Pont iPhone** — envoie idées/notes et commandes depuis l'app Raccourcis (Siri comme télécommande à distance)
 - 🎭 **Personnalités** — majordome sarcastique, neutre, concis — changeable à la voix
 - 🏠 **Présence** — ping ton téléphone, déclenche des scènes quand tu pars/reviens
 - 🌤️ **Utilitaires** — météo, minuteurs, heure/date
@@ -135,6 +136,7 @@ Tout est dans un unique `config.yaml` **non versionné** (copié depuis
 | Réservations web | [docs/reservation.md](docs/reservation.md) |
 | Instagram | [docs/instagram.md](docs/instagram.md) |
 | Serveur MCP | [docs/mcp.md](docs/mcp.md) |
+| Pont iPhone (Raccourcis) | [docs/iphone.md](docs/iphone.md) |
 | **Latence perçue (UX)** | [docs/latency.md](docs/latency.md) |
 
 ## 🛡️ Éthique & Sécurité
@@ -151,7 +153,7 @@ La confiance est intégrée, pas rajoutée :
 ## 🗺️ Roadmap
 
 - [ ] Contrôle des lampes vidéo Godox (aujourd'hui Hue seulement)
-- [ ] Outils notes & rappels
+- [x] Notes / idées (+ pont iPhone via Raccourcis) — rappels programmés à venir
 - [ ] TTS en streaming phrase par phrase (voir [docs/latency.md](docs/latency.md))
 - [ ] Boucle navigateur en 100 % local : la vision de `qwen3.5` lit déjà le texte des boutons (testé) — reste à valider le pilotage complet
 - [ ] Rafraîchissement auto des tokens Instagram entre redémarrages (partiel aujourd'hui)

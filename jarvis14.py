@@ -844,6 +844,9 @@ def main():
     from tools.instagram import demarrer_refresh_instagram
     demarrer_refresh_instagram()
 
+    from core.pont_iphone import demarrer_pont
+    demarrer_pont()
+
     from core.llm import llm
     _fournisseur = llm()
     print(f"Mode : {config.reglage('mode', 'cloud')} — LLM {_fournisseur.nom}, "
