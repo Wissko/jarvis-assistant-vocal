@@ -118,8 +118,12 @@ loopstr:                        # echeances de partenariats via flux iCal (voir 
 serveur:                       # UN serveur web pour TOUT (pont iPhone + webhook Twilio V2 + futures PWA)
   actif: false                 # true = lance le serveur au demarrage (requis pour le pont iPhone)
   port: 8790                   # port local unique ; UN seul tunnel ngrok le sert en entier
-  public_url: ""               # ton domaine ngrok statique (https://xxx.ngrok.app) : sert tout
-  ngrok_authtoken: ""          # (optionnel) tunnel auto si tu n'as pas de domaine statique
+  # -- Deux facons d'exposer le port (choisis-en UNE) --
+  # A) Jarvis ouvre le tunnel tout seul (pas besoin d'installer la commande ngrok) :
+  ngrok_authtoken: ""          # ton authtoken (dashboard.ngrok.com)
+  ngrok_domaine: ""            # ton domaine statique SANS https:// (ex. mon-truc.ngrok-free.app) ; vide = URL aleatoire
+  # B) Tu lances ngrok toi-meme (CLI) : renseigne public_url et laisse authtoken/domaine vides
+  public_url: ""               # ex. "https://mon-truc.ngrok.app"
 
 pont_iphone:                   # notes/commandes depuis l'iPhone (Raccourcis) ; voir docs/iphone.md
   token: ""                    # SECRET : en-tete X-Jarvis-Token (genere une longue chaine aleatoire)

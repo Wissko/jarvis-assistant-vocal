@@ -13,6 +13,15 @@ import logging
 import socket
 import threading
 
+# Magasin de certificats Windows : indispensable AVANT pyngrok, dont l'installeur
+# telecharge le binaire ngrok en TLS (Malwarebytes intercepte -> sinon "certificate
+# verify failed" et le tunnel ne s'ouvre jamais).
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except Exception:
+    pass
+
 from core.config import reglage
 
 LOG = logging.getLogger("jarvis")
@@ -74,25 +83,60 @@ def demarrer():
         if _port_ouvert(port):
             break
         time.sleep(0.15)
-    print(f"Serveur web : port {port} (iPhone /api/inbox, Twilio /stream). "
-          "Expose ce port via ton ngrok statique.")
+    # Ouvre le tunnel ngrok automatiquement (si authtoken configure et pas d'URL
+    # manuelle) pour que l'endpoint soit joignable des le demarrage.
+    try:
+        _ouvrir_tunnel()
+    except Exception:
+        LOG.exception("ouverture du tunnel ngrok")
+    print(f"Serveur web : port {port} (iPhone /api/inbox, Twilio /stream).")
+
+
+def _ouvrir_tunnel():
+    """Ouvre le tunnel ngrok en mode AUTO : authtoken configure, pas d'URL manuelle.
+    Utilise ton domaine STATIQUE si serveur.ngrok_domaine est renseigne.
+    Degrade proprement (message clair) si l'antivirus bloque ngrok."""
+    global _URL
+    if reglage("serveur.public_url", "") or reglage("twilio.public_url", ""):
+        return                          # tu geres ton tunnel toi-meme (CLI)
+    if _URL:
+        return
+    tok = reglage("serveur.ngrok_authtoken", "") or reglage("twilio.ngrok_authtoken", "")
+    if not tok:
+        return
+    from pyngrok import ngrok
+    try:
+        ngrok.set_auth_token(tok)
+        domaine = reglage("serveur.ngrok_domaine", "")
+        options = {"domain": domaine} if domaine else {}
+        _URL = ngrok.connect(_port(), "http", **options).public_url
+        LOG.info("tunnel ngrok ouvert : %s", _URL)
+        print(f"Tunnel ngrok ouvert : {_URL}")
+    except Exception as e:
+        _URL = None
+        msg = str(e)
+        if "certificate" in msg or "x509" in msg or "unknown authority" in msg:
+            # Cas connu : un antivirus (Avast Web Shield) intercepte et BLOQUE ngrok
+            # avec un certificat "Untrusted Root" -> l'agent ne peut pas s'authentifier.
+            LOG.error("tunnel ngrok bloque par l'antivirus (certificat non fiable). "
+                      "Ajoute une exception Avast pour connect.ngrok-agent.com et *.ngrok-free.app, "
+                      "ou utilise un tunnel lance a la main (serveur.public_url). Voir docs/iphone.md.")
+            print("ATTENTION : le tunnel ngrok est bloque par l'antivirus (Avast). "
+                  "Le serveur local tourne mais n'est pas joignable de l'exterieur. "
+                  "Ajoute une exception Avast (voir docs/iphone.md) puis relance.")
+        else:
+            LOG.exception("ouverture du tunnel ngrok")
+            print(f"Tunnel ngrok indisponible : {msg[:120]}")
 
 
 def url_publique():
-    """Base publique https:// : ton domaine ngrok statique, ou un tunnel auto."""
-    global _URL
+    """Base publique https:// : URL manuelle, sinon le tunnel ngrok auto."""
     manuel = reglage("serveur.public_url", "") or reglage("twilio.public_url", "")
     if manuel:
         return manuel.rstrip("/")
-    if _URL:
-        return _URL
-    from pyngrok import ngrok
-    tok = reglage("serveur.ngrok_authtoken", "") or reglage("twilio.ngrok_authtoken", "")
-    if tok:
-        ngrok.set_auth_token(tok)
-    _URL = ngrok.connect(_port(), "http").public_url
-    LOG.info("tunnel ngrok : %s", _URL)
-    return _URL
+    if not _URL:
+        _ouvrir_tunnel()
+    return _URL or ""
 
 
 def url_ws():

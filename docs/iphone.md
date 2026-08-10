@@ -86,6 +86,42 @@ Puis, à la maison, à la voix :
 - « **Jarvis, sors-moi une idée de contenu** » → il pioche au hasard dans tes idées.
 - « **Qu'est-ce que j'ai noté aujourd'hui ?** » → le résumé du jour.
 
+## ⚠️ Antivirus qui bloque ngrok (Avast / AVG)
+
+Certains antivirus (**Avast**, AVG…) **bloquent ngrok** : ils le classent comme
+outil de tunneling. Symptômes : le tunnel ne s'ouvre pas et le log dit
+`x509: certificate signed by unknown authority` (Avast présente un certificat
+« *Untrusted Root* » exprès non valide), ou le **téléchargement** du binaire ngrok
+est coupé. Ton domaine renvoie alors **404** (aucun agent connecté).
+
+**Solution — ajoute une exception dans Avast** (2 min, à faire une fois) :
+
+1. Ouvre Avast → **Menu (☰)** → **Paramètres**.
+2. **Général → Exceptions → Ajouter une exception**, et ajoute ces URL (une par
+   ligne) :
+   ```
+   connect.ngrok-agent.com
+   *.ngrok-free.app
+   *.ngrok.app
+   *.ngrok.io
+   bin.ngrok.com
+   bin.equinox.io
+   ```
+3. (Si ça bloque encore) **Protection → Web Shield (Bouclier Web)** →
+   vérifie l'**analyse HTTPS** et ajoute les mêmes URL en exception, **ou** ajoute
+   le fichier `ngrok.exe` en exception de processus
+   (`%LOCALAPPDATA%\ngrok\ngrok.exe`).
+4. Relance Jarvis. Au démarrage il doit afficher « Tunnel ngrok ouvert : … » et
+   `…/api/ping` répondre `{"ok": true}`.
+
+> Le binaire ngrok est installé via `winget install Ngrok.Ngrok` (le
+> téléchargement direct depuis bin.ngrok.com est souvent coupé par l'antivirus).
+
+**Alternative si tu ne veux pas toucher à Avast** : lance le tunnel toi-même dans
+une console où l'antivirus laisse passer, et renseigne `serveur.public_url`
+(mode manuel B ci-dessus) — mais l'agent ngrok subit le même blocage, donc
+l'exception Avast reste la voie fiable.
+
 ## 🛡️ Sécurité (important)
 
 Une **commande à distance ne peut déclencher que des actions sûres** (lumières,
