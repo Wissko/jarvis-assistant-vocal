@@ -844,8 +844,10 @@ def main():
     from tools.instagram import demarrer_refresh_instagram
     demarrer_refresh_instagram()
 
-    from core.pont_iphone import demarrer_pont
-    demarrer_pont()
+    # Serveur web unifie (pont iPhone + webhook Twilio des appels V2 + futures PWA).
+    if config.reglage("serveur.actif", False) or config.reglage("pont_iphone.actif", False):
+        from core.serveur import demarrer as demarrer_serveur_web
+        demarrer_serveur_web()
 
     from core.llm import llm
     _fournisseur = llm()

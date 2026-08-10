@@ -31,10 +31,8 @@ from core.registre import outil
 LOG = logging.getLogger("jarvis")
 _RACINE = Path(__file__).resolve().parent.parent
 
-# --- etat du serveur websocket (partage entre threads) -----------------------
-_SERVEUR = None        # thread du serveur
-_LOOP = None           # boucle asyncio du serveur
-_URL_PUBLIQUE = None   # base wss:// (ngrok ou manuelle)
+# Le serveur websocket est desormais le serveur unifie (core.serveur) : la route
+# /stream y est montee par monter_ws(). Ici on ne garde que l'etat des appels.
 _RESULTATS = {}        # callSid -> {"event": Event, "echanges": [...], "statut": str}
 
 _TRANSCRIPTEUR = None   # np.float32 (16kHz) -> texte, fourni par jarvis14
@@ -44,10 +42,6 @@ _CLIENT = None
 def definir_transcripteur_direct(fn):
     global _TRANSCRIPTEUR
     _TRANSCRIPTEUR = fn
-
-
-def _port():
-    return int(reglage("appels.port_stream", 8770))
 
 
 # ------------------------------------------------------------------- audio
@@ -228,7 +222,7 @@ class Conversation:
                 break
             trame = ulaw[i:i + 160]
             try:
-                await self.ws.send(json.dumps({"event": "media", "streamSid": self.sid,
+                await self.ws.send_text(json.dumps({"event": "media", "streamSid": self.sid,
                     "media": {"payload": base64.b64encode(trame).decode("ascii")}}))
             except Exception:
                 # L'interlocuteur a raccroche pendant qu'on parlait : c'est normal.
@@ -261,74 +255,39 @@ def _raccrocher(call_sid):
         LOG.exception("raccrocher")
 
 
-# ------------------------------------------------------------- serveur ws
+# --------------------------------------- route websocket sur le serveur unifie
 
-async def _handler(ws):
-    conv = None
-    try:
-        async for message in ws:
-            data = json.loads(message)
-            ev = data.get("event")
-            if ev == "start":
-                info = data["start"]
-                params = info.get("customParameters", {}) or {}
-                conv = Conversation(ws, info["streamSid"], info["callSid"], params)
-                await conv.demarrer()
-            elif ev == "media" and conv:
-                await conv.audio_entrant(data["media"]["payload"])
-            elif ev == "stop":
-                if conv:
-                    await conv.terminer("raccroche")
-                break
-    except Exception:
-        LOG.exception("handler ws")
-        if conv:
-            await conv.terminer("erreur")
+def monter_ws(app):
+    """Ajoute la route WebSocket /stream (Twilio Media Streams) au serveur unifie
+    (core.serveur). Twilio s'y connecte via le <Stream> du TwiML."""
+    from fastapi import WebSocket, WebSocketDisconnect
 
-
-def _demarrer_serveur():
-    global _SERVEUR
-    if _SERVEUR and _SERVEUR.is_alive():
-        return
-    pret = threading.Event()
-
-    def run():
-        global _LOOP
-        _LOOP = asyncio.new_event_loop()
-        asyncio.set_event_loop(_LOOP)
-
-        async def principal():
-            import websockets
-            async with websockets.serve(_handler, "0.0.0.0", _port(), max_size=None):
-                pret.set()
-                await asyncio.Future()
+    @app.websocket("/stream")
+    async def stream(ws: WebSocket):
+        await ws.accept()
+        conv = None
         try:
-            _LOOP.run_until_complete(principal())
+            while True:
+                data = json.loads(await ws.receive_text())
+                ev = data.get("event")
+                if ev == "start":
+                    info = data["start"]
+                    params = info.get("customParameters", {}) or {}
+                    conv = Conversation(ws, info["streamSid"], info["callSid"], params)
+                    await conv.demarrer()
+                elif ev == "media" and conv:
+                    await conv.audio_entrant(data["media"]["payload"])
+                elif ev == "stop":
+                    if conv:
+                        await conv.terminer("raccroche")
+                    break
+        except WebSocketDisconnect:
+            if conv:
+                await conv.terminer("raccroche")
         except Exception:
-            LOG.exception("serveur media streams")
-            pret.set()
-
-    _SERVEUR = threading.Thread(target=run, daemon=True, name="media-streams")
-    _SERVEUR.start()
-    pret.wait(6)
-
-
-def _assurer_tunnel():
-    global _URL_PUBLIQUE
-    manuel = reglage("twilio.public_url", "")
-    if manuel:
-        _URL_PUBLIQUE = manuel.rstrip("/").replace("https://", "wss://").replace("http://", "ws://")
-        return _URL_PUBLIQUE
-    if _URL_PUBLIQUE:
-        return _URL_PUBLIQUE
-    from pyngrok import ngrok
-    tok = reglage("twilio.ngrok_authtoken", "")
-    if tok:
-        ngrok.set_auth_token(tok)
-    tunnel = ngrok.connect(_port(), "http")
-    _URL_PUBLIQUE = tunnel.public_url.replace("https://", "wss://").replace("http://", "ws://")
-    LOG.info("tunnel ngrok : %s", _URL_PUBLIQUE)
-    return _URL_PUBLIQUE
+            LOG.exception("ws /stream")
+            if conv:
+                await conv.terminer("erreur")
 
 
 # ------------------------------------------------------------------ l'outil
@@ -346,9 +305,10 @@ def _annonce(args):
 
 def _twiml_stream(objectif, contraintes):
     from twilio.twiml.voice_response import VoiceResponse, Connect, Stream
+    from core.serveur import url_ws
     vr = VoiceResponse()
     connect = Connect()
-    stream = Stream(url=f"{_URL_PUBLIQUE}/stream")
+    stream = Stream(url=f"{url_ws()}/stream")
     stream.parameter(name="objectif", value=objectif)
     stream.parameter(name="contraintes", value=contraintes or "")
     stream.parameter(name="prenom", value=_prenom())
@@ -404,12 +364,13 @@ def call_and_book(numero: str, objectif: str, contraintes: str = "") -> str:
         return f"Je n'appelle pas le {e164} : numero surtaxe."
 
     try:
-        _demarrer_serveur()
-        _assurer_tunnel()
+        from core.serveur import demarrer, url_publique
+        demarrer()
+        url_publique()   # verifie qu'on a une URL publique (ngrok statique ou tunnel)
     except Exception as e:
         LOG.exception("preparation serveur/tunnel")
         return (f"Je n'ai pas pu preparer le serveur d'appel ({e}). Verifie "
-                "twilio.public_url ou twilio.ngrok_authtoken (docs/appels.md).")
+                "serveur.public_url ou serveur.ngrok_authtoken (docs/appels.md).")
 
     try:
         import truststore

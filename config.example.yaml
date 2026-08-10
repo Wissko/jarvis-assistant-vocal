@@ -89,9 +89,8 @@ twilio:                        # appels telephoniques (voir docs/appels.md)
   account_sid: ""              # console.twilio.com (Account SID, commence par AC...)
   auth_token: ""               # console.twilio.com (Auth Token)
   numero: ""                   # ton numero Twilio au format +33... (from)
-  # --- V2 (conversation temps reel) : serveur public que Twilio doit joindre ---
-  public_url: ""               # wss://... si tu exposes le serveur toi-meme (sinon ngrok)
-  ngrok_authtoken: ""          # jeton ngrok (dashboard.ngrok.com) pour un tunnel automatique
+  # V2 (conversation temps reel) : le webhook Twilio (WebSocket /stream) passe par le
+  # serveur unifie. L'URL publique et ngrok se configurent dans la section "serveur".
 
 appels:
   actif: true
@@ -101,7 +100,7 @@ appels:
   dossier: "logs/calls"        # transcriptions + compteur (gitignore)
   # prefixes_interdits: ["089","3","118","10"]   # numeros surtaxes bloques (defaut fourni)
   # --- V2 (conversation temps reel) ---
-  port_stream: 8770            # port local du serveur Media Streams
+  # port_stream : plus utilise -> le serveur unifie ecoute sur serveur.port
   seuil_voix: 400             # seuil RMS de detection de parole (baisse si peu sensible)
   silence_fin_ms: 700         # silence (ms) marquant la fin d'une phrase de l'interlocuteur
   duree_max_appel: 180        # duree max d'un appel V2 (secondes)
@@ -116,10 +115,14 @@ agenda:                        # Google Agenda, API officielle OAuth2 (voir docs
 loopstr:                        # echeances de partenariats via flux iCal (voir docs/agenda.md)
   url: ""                       # URL du flux iCal Loopstr (donnees perso, non exposees via MCP)
 
-pont_iphone:                   # envoyer notes/commandes depuis l'iPhone (Raccourcis) ; voir docs/iphone.md
-  actif: false                 # true = lance le serveur d'ingestion au demarrage
+serveur:                       # UN serveur web pour TOUT (pont iPhone + webhook Twilio V2 + futures PWA)
+  actif: false                 # true = lance le serveur au demarrage (requis pour le pont iPhone)
+  port: 8790                   # port local unique ; UN seul tunnel ngrok le sert en entier
+  public_url: ""               # ton domaine ngrok statique (https://xxx.ngrok.app) : sert tout
+  ngrok_authtoken: ""          # (optionnel) tunnel auto si tu n'as pas de domaine statique
+
+pont_iphone:                   # notes/commandes depuis l'iPhone (Raccourcis) ; voir docs/iphone.md
   token: ""                    # SECRET : en-tete X-Jarvis-Token (genere une longue chaine aleatoire)
-  port: 8790                   # port local ; expose-le via ton domaine ngrok statique
 
 navigateur:                    # assistance sur TON Chrome (voir docs/navigateur.md)
   cdp_port: 9222               # port de debug (raccourci "Chrome + Jarvis")

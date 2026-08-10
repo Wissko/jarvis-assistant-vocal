@@ -17,12 +17,10 @@ un resto ni passer un appel.
 """
 import logging
 import secrets
-import threading
 
 from core.config import reglage
 
 LOG = logging.getLogger("jarvis")
-_SERVEUR = None
 
 
 def _token_ok(fourni):
@@ -77,12 +75,11 @@ def traiter_commande(phrase):
     return {"ok": True, "faits": faits, "reponse": "Commande trop longue a traiter."}
 
 
-def _app():
-    from fastapi import FastAPI, Header, HTTPException
+def monter_routes(app):
+    """Ajoute les routes du pont iPhone (/api/inbox, /api/ping) au serveur unifie."""
+    from fastapi import Header, HTTPException
     from pydantic import BaseModel
     from tools.notes import ajouter_note
-
-    app = FastAPI(title="Jarvis — pont iPhone")
 
     class Entree(BaseModel):
         type: str
@@ -109,29 +106,4 @@ def _app():
 
     @app.get("/api/ping")
     def ping():
-        return {"ok": True, "service": "jarvis-pont-iphone"}
-
-    return app
-
-
-def demarrer_pont():
-    """Lance le serveur d'ingestion en tache de fond (si actif + token configure)."""
-    global _SERVEUR
-    if _SERVEUR is not None:
-        return
-    if not (reglage("pont_iphone.actif", False) and reglage("pont_iphone.token", "")):
-        return
-    import uvicorn
-    port = int(reglage("pont_iphone.port", 8790))
-    config = uvicorn.Config(_app(), host="0.0.0.0", port=port, log_level="warning")
-    serveur = uvicorn.Server(config)
-
-    def run():
-        try:
-            serveur.run()   # uvicorn n'installe pas les handlers de signaux hors main thread
-        except Exception:
-            LOG.exception("pont iPhone : serveur arrete")
-
-    _SERVEUR = threading.Thread(target=run, daemon=True, name="pont-iphone")
-    _SERVEUR.start()
-    print(f"Pont iPhone : ecoute sur le port {port} (expose-le via ton ngrok statique).")
+        return {"ok": True, "service": "jarvis"}

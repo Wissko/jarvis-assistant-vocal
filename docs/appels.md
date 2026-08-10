@@ -83,23 +83,26 @@ Chaine : Twilio (mu-law 8kHz) -> Whisper -> Claude (phrases courtes) -> ElevenLa
 
 ### Le serveur public (le point cle)
 
-Twilio doit joindre un **serveur websocket public**. Deux options :
+Twilio doit joindre un **serveur public** ; c'est le **serveur web unifie** de Jarvis
+(le meme que le pont iPhone — un seul port, un seul tunnel, voir docs/iphone.md).
+La route est `/stream` (WebSocket). Deux options dans `config.yaml` :
 
-1. **Tunnel ngrok automatique** (le plus simple) : cree un compte gratuit sur
-   [ngrok.com](https://ngrok.com), copie ton authtoken et mets-le dans `config.yaml` :
+1. **Ton domaine ngrok statique** (recommande si tu en as un) :
    ```yaml
-   twilio:
+   serveur:
+     public_url: "https://ton-domaine-statique.ngrok.app"   # sert /stream ET /api/inbox
+   ```
+   et lance le tunnel : `ngrok http --domain=ton-domaine-statique.ngrok.app 8790`.
+
+2. **Tunnel ngrok automatique** (sans domaine statique) :
+   ```yaml
+   serveur:
      ngrok_authtoken: "ton_authtoken_ngrok"
    ```
    Jarvis ouvre le tunnel tout seul au moment de l'appel.
 
-2. **URL publique a toi** (si tu heberges/exposes deja un port) :
-   ```yaml
-   twilio:
-     public_url: "wss://mon-domaine.exemple"   # pointant vers le port appels.port_stream
-   ```
-
-Sans l'un des deux, `call_and_book` te le dira et n'appellera pas.
+Sans l'un des deux, `call_and_book` te le dira et n'appellera pas. (Les anciennes cles
+`twilio.public_url` / `twilio.ngrok_authtoken` restent lues en repli.)
 
 ### Cas geres
 

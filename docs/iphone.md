@@ -10,20 +10,24 @@ déplacement, ou piloter la maison à distance (« Dis Siri, Dis à Jarvis, mode
    ```bash
    python -c "import secrets; print(secrets.token_urlsafe(24))"
    ```
-2. Dans `config.yaml` :
+2. Dans `config.yaml` (le pont iPhone partage le **serveur web unifié** de Jarvis, le
+   même qui sert le webhook Twilio des appels V2 — un seul port, un seul tunnel) :
    ```yaml
-   pont_iphone:
+   serveur:
      actif: true
-     token: "colle-ton-token-ici"
      port: 8790
+     public_url: "https://ton-domaine-statique.ngrok.app"   # ton domaine ngrok statique
+
+   pont_iphone:
+     token: "colle-ton-token-ici"
    ```
-3. **Expose le port via ton domaine ngrok statique** (le serveur écoute en local sur
-   8790) :
+3. **Expose ce port via ton domaine ngrok statique** (un seul tunnel sert TOUT :
+   `/api/inbox`, le `/stream` de Twilio, et tes futures PWA) :
    ```bash
    ngrok http --domain=ton-domaine-statique.ngrok.app 8790
    ```
-   L'URL de base de tes raccourcis sera alors `https://ton-domaine-statique.ngrok.app`.
-4. Relance Jarvis. Au démarrage il affiche « Pont iPhone : écoute sur le port 8790 ».
+   L'URL de base de tes raccourcis sera `https://ton-domaine-statique.ngrok.app`.
+4. Relance Jarvis. Au démarrage il affiche « Serveur web : port 8790… ».
    Teste : `https://ton-domaine.ngrok.app/api/ping` doit répondre `{"ok": true}`.
 
 L'endpoint est **POST `/api/inbox`**, en-tête `X-Jarvis-Token: <ton token>`, corps JSON :
