@@ -45,6 +45,11 @@ def app():
         from core.pont_iphone import monter_routes
         monter_routes(_APP)                       # /api/inbox, /api/ping
         try:
+            from core.panneau import monter_routes as monter_panneau
+            monter_panneau(_APP)                  # /panneau + /api/panneau/* (LOCAL uniquement)
+        except Exception:
+            LOG.exception("montage du panneau de configuration")
+        try:
             from tools.appel_direct import monter_ws
             monter_ws(_APP)                        # /stream (Twilio Media Streams)
         except Exception:
