@@ -136,12 +136,13 @@ depuis le téléphone, **zéro nouvelle installation**.
    ✅ **Appliqué** (commit Scripts *« fix: cookies navigateur… »*).
    - **Si Firefox n'est pas connecté à YouTube** → yt-dlp échoue sur la bot-detection, et le
      tool l'**annonce à voix haute** (« aucune transcription… »), **jamais d'échec muet**.
-2. ⚠️ **Un runtime JS + solveur de challenge** (yt-dlp récent en a besoin pour résoudre la
-   signature du player YouTube). Sans lui : *« Signature solving failed / Only images are
-   available »*. C'est un problème **yt-dlp ↔ YouTube général** (pas propre à ce pipeline),
-   **hors du fix minimal cookies**. Pour le résoudre entièrement : installer **deno** (runtime
-   par défaut de yt-dlp) ou le solveur **EJS** (cf. wiki yt-dlp). L'échec reste **annoncé
-   vocalement**, jamais silencieux.
+2. **Un runtime JS (`deno`) + le solveur de challenge `EJS`** (yt-dlp récent en a besoin pour
+   résoudre la signature du player YouTube). ✅ **Réglé** : `deno` installé
+   (`winget install DenoLand.Deno`) et `ytdlp_run.py` injecte `--remote-components ejs:github`
+   (yt-dlp télécharge le solveur, exécuté par deno). Sans ça : *« Signature solving failed /
+   Only images are available »* → échec **annoncé vocalement**, jamais silencieux.
+   - ⚠️ `deno` doit être sur le PATH quand le job tourne → **relancer Jarvis** après l'install
+     de deno pour qu'il hérite du nouveau PATH.
 
 > L'ingestion **Instagram/TikTok** (le pipeline principal des inspirations) **n'est PAS
 > concernée** par ce challenge JS et fonctionne normalement.
