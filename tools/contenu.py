@@ -4,9 +4,29 @@ Doctrine : Jarvis = interface vocale rapide ; Hermes = moteur d'analyse/generati
 Hermes lit le Vault + le projet Scripts en LECTURE SEULE dans son conteneur Docker
 (cf. HERMES_NOTES.md §17) ; il n'ecrit que dans drafts/.
 """
-from core import hub_contenu
+import os
+import re
+import shutil
+import subprocess
+import threading
+from pathlib import Path
+
+from core import hub_contenu, voix
+from core.config import reglage
 from core.registre import outil
 from tools.deleguer_a_hermes import deleguer_en_fond
+
+
+def _bash() -> str:
+    """Git Bash (les scripts du projet Scripts sont en bash + cygpath)."""
+    cfg = reglage("integrations.bash", "")
+    if cfg:
+        return cfg
+    for c in (r"C:\Program Files\Git\bin\bash.exe",
+              r"C:\Program Files\Git\usr\bin\bash.exe"):
+        if Path(c).exists():
+            return c
+    return shutil.which("bash") or "bash"
 
 
 @outil(
@@ -80,3 +100,52 @@ def generer_script(sujet, style=""):
         "Termine par une ligne 'RESUME:' donnant le nom du fichier cree et l'angle choisi, "
         "en 2 phrases, pour la voix.")
     return deleguer_en_fond(tache, intro="Ton brouillon est pret. ", nom_thread="generer-script")
+
+
+@outil(
+    nom="lancer_ingestion_youtube",
+    mcp_expose=True,
+    description=(
+        "Lance l'ingestion d'une chaine ou video YouTube (yt-dlp + transcription) COTE HOTE "
+        "via le projet Scripts. Job long en arriere-plan ; notification vocale a la fin. "
+        "Sortie dans sources/clean/<cible>/. C'est l'outil que Hermes appelle pour ingerer "
+        "du YouTube (lui ne peut pas lancer les jobs bash depuis son conteneur)."),
+    parametres={"type": "object", "properties": {
+        "url": {"type": "string", "description": "URL de la chaine ou video YouTube."},
+        "cible": {"type": "string", "description": "Nom court du dossier de destination (ex. createur-x)."},
+        "whisper": {"type": "boolean", "description": "true = transcription Whisper ponctuee (lent) ; false = sous-titres (rapide, defaut)."},
+        "max": {"type": "integer", "description": "Nb de videos les plus recentes (chaine). 0 = tout."}},
+        "required": ["url", "cible"]},
+)
+def lancer_ingestion_youtube(url, cible, whisper=False, max=0):
+    """Declenche ingest.sh (Git Bash, hote) en arriere-plan ; previent a voix haute a la fin."""
+    scripts = Path(reglage("integrations.scripts", "") or str(Path.home() / "Downloads" / "Scripts"))
+    if not (scripts / "scripts" / "ingest.sh").exists():
+        return f"Projet Scripts introuvable (ingest.sh) sous {scripts}."
+    cible = re.sub(r"[^A-Za-z0-9_-]", "-", str(cible)).strip("-") or "youtube"
+    args = [_bash(), "scripts/ingest.sh"]
+    if whisper:
+        args.append("--whisper")
+    if max:
+        args += ["--max", str(int(max))]
+    args += [url, cible]
+
+    def worker():
+        try:
+            subprocess.run(args, cwd=str(scripts), capture_output=True, text=True,
+                           timeout=int(reglage("hub.timeout_youtube", 3600)),
+                           env=dict(os.environ, WHISPER_DEVICE="cpu"))
+            clean = scripts / "sources" / "clean" / cible
+            n = len(list(clean.glob("*.md"))) if clean.exists() else 0
+            if n:
+                voix.parler(f"Ingestion YouTube terminee : {n} transcription pour {cible}."
+                            if n == 1 else
+                            f"Ingestion YouTube terminee : {n} transcriptions pour {cible}.")
+            else:
+                voix.parler(f"L'ingestion YouTube de {cible} n'a produit aucune transcription "
+                            "(chaine privee, pas de sous-titres, ou lien invalide).")
+        except Exception as e:
+            voix.parler(f"L'ingestion YouTube a echoue : {str(e)[:100]}")
+
+    threading.Thread(target=worker, daemon=True, name="ingest-youtube").start()
+    return f"Je lance l'ingestion YouTube de « {cible} » en arriere-plan. Je te previens a la fin."

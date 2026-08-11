@@ -106,6 +106,33 @@ depuis le téléphone, **zéro nouvelle installation**.
 - **`index.md` semble figé** → normal : append-only. On n'écrase jamais, on ajoute.
 - **Accents bizarres dans un terminal** → affichage seulement ; les fichiers sont en UTF-8.
 
+## Génération (Jarvis + Hermes)
+
+**Doctrine** : Jarvis = interface vocale rapide ; **Hermes = moteur** (il lit `/vault` +
+`/scripts` en **lecture seule** dans son conteneur Docker, écrit seulement dans `/scripts/drafts`).
+
+**Outils Jarvis** (`tools/contenu.py`) :
+- `chercher_inspiration(sujet)` — recherche pondérée dans le vault (côté Jarvis, rapide). `mcp_expose`.
+- `generer_idees_contenu()` — **délègue à Hermes** l'analyse du vault + 5 concepts. `mcp_expose`.
+- `generer_script(sujet, style?)` — **délègue à Hermes** la rédaction (confirmation requise) ; sortie `drafts/`.
+- `lancer_ingestion_youtube(url, cible, whisper?, max?)` — lance `ingest.sh` **côté hôte** (Git Bash)
+  en arrière-plan + notif vocale. `mcp_expose` (c'est l'outil qu'Hermes appelle pour le YouTube).
+
+**Skills Hermes** (dans `%LOCALAPPDATA%\hermes\skills\hub-contenu\`) :
+- `analyser-vault` — tendances/formats/hooks + concepts (lit `/vault`).
+- `generer-script-maison` — écrit dans ta voix (`corrections.md` en autorité max) → `/scripts/drafts`.
+- `ingerer-chaine-youtube` — passe par l'outil MCP `lancer_ingestion_youtube` (jobs bash = hôte).
+- `creer-une-veille` — met en place une veille hebdo sur un sujet (cron → Telegram).
+
+**Veille IA hebdo** : cron Hermes `veille-ia-hebdo` (vendredi 18h → Telegram). Gérer :
+`hermes cron list|run|edit|remove`. En créer d'autres : « crée une veille sur <sujet> » (skill).
+
+> ⚠️ **YouTube exige désormais des cookies** (bot-detection : `HTTP 429` / « Sign in to confirm
+> you're not a bot »). `ingest.sh` télécharge sans cookies → l'ingestion YouTube échoue (le tool
+> le **dit à voix haute**, pas d'échec muet). Fix propre (à appliquer dans le projet Scripts, même
+> méthode que l'Insta, **sans credentials en clair**) : ajouter `--cookies-from-browser firefox`
+> aux appels yt-dlp d'`ingest.sh`/`ytdlp_run.py` (et éventuellement installer un runtime JS : `node`).
+
 ## Sécurité
 
 - Les **téléchargements se font côté Jarvis** (cookies Firefox de l'utilisateur) — **aucun
