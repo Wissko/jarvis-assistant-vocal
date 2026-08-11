@@ -391,6 +391,58 @@ def ingerer_inspiration(url: str, commentaire: str = "") -> dict:
         return {"ok": False, "message": f"Fiche telechargee mais indexation echouee : {e}"}
 
 
+def _parser_index(texte: str) -> list:
+    """Entrees de index.md : ### titre / - lien / - auteur / - themes / - contenu."""
+    entrees, cur = [], None
+    for ligne in texte.splitlines():
+        if ligne.startswith("### "):
+            if cur:
+                entrees.append(cur)
+            cur = {"titre": ligne[4:].strip(), "lien": "", "auteur": "",
+                   "themes": [], "contenu": ""}
+        elif cur is not None:
+            s = ligne.strip()
+            if s.startswith("- lien :"):
+                cur["lien"] = s[len("- lien :"):].strip()
+            elif s.startswith("- auteur :"):
+                cur["auteur"] = s[len("- auteur :"):].strip()
+            elif s.startswith("- th") and ":" in s:      # thèmes / themes
+                cur["themes"] = [t.strip() for t in s.split(":", 1)[1].split(",") if t.strip()]
+            elif s.startswith("- contenu :"):
+                cur["contenu"] = s[len("- contenu :"):].strip()
+    if cur:
+        entrees.append(cur)
+    return entrees
+
+
+def chercher(sujet: str, n: int = 6) -> list:
+    """Recherche pondérée dans index.md + front-matters/transcriptions de raw/.
+    Renvoie les meilleures entrées {titre, lien, auteur, themes, contenu}."""
+    vault = _vault()
+    index = vault / "index.md"
+    if not index.exists():
+        return []
+    entrees = _parser_index(index.read_text(encoding="utf-8"))
+    termes = [t for t in re.split(r"\W+", (sujet or "").lower()) if len(t) >= 2]
+    if not termes:
+        return []
+    notes = []
+    for e in entrees:
+        blob = (e["titre"] + " " + e["contenu"] + " " + " ".join(e["themes"])
+                + " " + e["auteur"]).lower()
+        score = sum(3 * blob.count(t) for t in termes)   # l'index pèse le plus
+        sc = _shortcode_url(e["lien"])
+        if sc:
+            fiche = vault / "raw" / f"insta_{sc}.md"
+            if fiche.exists():
+                txt = fiche.read_text(encoding="utf-8", errors="ignore").lower()
+                score += sum(txt.count(t) for t in termes)   # transcription + tags
+        if score:
+            notes.append((score, e))
+    notes.sort(key=lambda x: -x[0])
+    return [e for _, e in notes[:n]]
+
+
 def indexer_manquantes(limite: int = 0) -> dict:
     """Indexe toutes les fiches de raw/ absentes de l'index (dedup shortcode).
     Utile apres un depot en lot dans raw/ (flux iCloud) ou pour rattraper."""

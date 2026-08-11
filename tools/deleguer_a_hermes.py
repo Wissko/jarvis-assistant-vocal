@@ -107,6 +107,26 @@ def _annonce(args):
     return f"Je vais deleguer a Hermes : {court}."
 
 
+def deleguer_en_fond(tache: str, intro: str = "Hermes a termine. ",
+                     nom_thread: str = "deleguer-hermes") -> str:
+    """Reutilisable : delegue une tache a Hermes en tache de fond, journalise le
+    resultat complet, et annonce a voix haute un resume court (filtre confidentialite).
+    Renvoie tout de suite l'accuse pour Jarvis. Utilise par deleguer_a_hermes ET par
+    les outils de contenu (generer_idees, generer_script)."""
+    def worker():
+        try:
+            resultat = _appeler_hermes(tache)
+            _journaliser(tache, resultat)
+            resume = confidentialite.filtrer(
+                _resume_vocal(resultat), max_car=int(reglage("hermes.resume_max", 500)))
+            voix.parler(intro + resume)
+        except Exception as e:
+            voix.parler("La delegation a Hermes a echoue. "
+                        + confidentialite.filtrer(str(e), 120))
+    threading.Thread(target=worker, daemon=True, name=nom_thread).start()
+    return "Je delegue ca a Hermes. Je te previens des que c'est pret."
+
+
 @outil(
     nom="deleguer_a_hermes",
     description=(
@@ -136,17 +156,4 @@ def deleguer_a_hermes(tache: str) -> str:
     tache = (tache or "").strip()
     if not tache:
         return "Je n'ai pas compris la tache a deleguer."
-
-    def worker():
-        try:
-            resultat = _appeler_hermes(tache)
-            _journaliser(tache, resultat)
-            resume = confidentialite.filtrer(
-                _resume_vocal(resultat), max_car=int(reglage("hermes.resume_max", 500)))
-            voix.parler("Hermes a termine. " + resume)
-        except Exception as e:
-            voix.parler("La delegation a Hermes a echoue. "
-                        + confidentialite.filtrer(str(e), 120))
-
-    threading.Thread(target=worker, daemon=True, name="deleguer-hermes").start()
-    return "Je delegue ca a Hermes. Je te previens des que c'est pret."
+    return deleguer_en_fond(tache)
