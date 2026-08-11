@@ -151,6 +151,32 @@ une console où l'antivirus laisse passer, et renseigne `serveur.public_url`
 (mode manuel B ci-dessus) — mais l'agent ngrok subit le même blocage, donc
 l'exception Avast reste la voie fiable.
 
+## ⚠️ « La connexion réseau a été perdue » (erreur -1005 iOS)
+
+Si un raccourci renvoie **« La connexion réseau a été perdue »** alors que
+`/api/ping` répond depuis **Safari** et qu'**un autre raccourci** (ex. « Inspiration
+Jarvis ») marche vers la **même** URL : le problème n'est **ni le réseau, ni ngrok,
+ni le serveur** — c'est **le raccourci lui-même**. Cause quasi certaine : une **URL
+abîmée par l'autocorrection iOS** (majuscule sur « Https », espace ou caractère
+invisible collé, `.app` au lieu de `.dev`…). Saisir l'URL à la main dans « Obtenir
+le contenu de l'URL » est le piège classique.
+
+**Diagnostic express :**
+- **Safari** sur l'iPhone → `…/api/ping` répond `{"ok":true}` ? → réseau/ngrok OK.
+- Change **seulement l'URL** du raccourci par `https://postman-echo.com/post` et
+  lance : tu récupères un gros JSON ? → Raccourcis sait poster, donc c'est bien
+  l'URL/config ngrok **du raccourci** qui est en cause (pas iOS, pas le réseau).
+- `logs/inbox.log` reste vide (aucun `ua='…CFNetwork…'`) → la requête n'atteint
+  jamais le serveur. Côté PC, l'**inspecteur ngrok** (`http://127.0.0.1:4041`)
+  logge **toute** requête atteignant le tunnel : pratique pour savoir si le POST
+  meurt avant ngrok ou après.
+
+**La solution qui marche à tous les coups : ne pas déboguer le raccourci cassé, le
+refaire depuis un raccourci QUI MARCHE.** Duplique « Inspiration Jarvis » → renomme
+→ **ne touche NI à l'URL, NI à la Méthode, NI aux En-têtes** → change seulement le
+**Corps JSON** (`type`, champs). L'URL éprouvée est héritée telle quelle, sans
+risque de faute de frappe. C'est ainsi que « Note à Jarvis » a été réparé.
+
 ## 🛡️ Sécurité (important)
 
 Une **commande à distance ne peut déclencher que des actions sûres** (lumières,
