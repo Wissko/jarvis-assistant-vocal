@@ -199,3 +199,7 @@ hub:                           # indexeur/pipeline du hub de contenu
 
 suivi:                         # suivi de contenus (pipeline video) ; voir docs/suivi_contenu.md
   fichier: "contenus.yaml"     # liste des contenus (non versionnee) ; chemin relatif = racine du projet
+
+securite:                      # niveaux de permission (N8) ; voir docs/panneau.md
+  toujours: []                 # outils N2 memorises "toujours autoriser" (revocables au panneau)
+                               # rempli a la voix ("oui, toujours") ; un N3 n'y entre JAMAIS

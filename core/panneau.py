@@ -460,11 +460,13 @@ def _permissions():
     from core import registre
     registre.charger_outils()
     outils = []
-    for o in sorted(registre.tous(), key=lambda x: x.nom):
+    for o in sorted(registre.tous(), key=lambda x: (x.nom)):
         outils.append({
             "nom": o.nom,
+            "niveau": registre.niveau(o.nom),
             "mcp_expose": bool(o.mcp_expose),
             "confirmation": bool(o.confirmation),
+            "toujours": registre.est_autorise(o.nom),
             "description": (o.description or "")[:120],
         })
     # Montages Hermes (Docker) : lus dans sa config, pour la vue "perimetre fichiers".
@@ -479,16 +481,22 @@ def _permissions():
     except Exception:
         pass
     return {
-        "regle_n3": "Une commande a distance (pont iPhone) ne declenche QUE des outils surs "
-                    "(mcp_expose ET sans confirmation). Toute action sensible est refusee. "
-                    "Jamais de 'toujours autoriser' depuis le distant. [verrouille dans le code]",
+        "regle_n3": "N3 (critique) : confirmation TOUJOURS, jamais memorisable en 'toujours', "
+                    "jamais a distance. Le pont iPhone ne declenche QUE des N1 (mcp_expose ET "
+                    "sans confirmation) ; toute action a confirmation (N2/N3) est refusee a "
+                    "distance, et le 'toujours autoriser' n'ouvre RIEN a distance. [verrouille dans le code]",
         "outils": outils,
         "compte": {"total": len(outils),
                    "mcp_expose": sum(1 for o in outils if o["mcp_expose"]),
-                   "confirmation": sum(1 for o in outils if o["confirmation"])},
+                   "confirmation": sum(1 for o in outils if o["confirmation"]),
+                   "n1": sum(1 for o in outils if o["niveau"] == "N1"),
+                   "n2": sum(1 for o in outils if o["niveau"] == "N2"),
+                   "n3": sum(1 for o in outils if o["niveau"] == "N3"),
+                   "toujours": sum(1 for o in outils if o["toujours"])},
         "hermes_montages": montages,
-        "note_n8": "Les niveaux N1/N2/N3 et les autorisations 'toujours' revocables "
-                   "arriveront avec la N8 ; cette page est pour l'instant en lecture seule.",
+        "note_n8": "N1 = sur (local + iPhone). N2 = sensible (confirmation ; memorisable "
+                   "'toujours autoriser', revocable ici). N3 = critique (confirmation toujours, "
+                   "jamais memorisable, jamais a distance).",
     }
 
 
@@ -593,5 +601,15 @@ def monter_routes(app):
     @app.post("/api/panneau/reconnecter-mcp")
     def api_reco(request: Request):
         return garde(request) or _reconnecter_mcp()
+
+    @app.post("/api/panneau/permissions/revoquer")
+    async def api_revoquer(request: Request):
+        if (r := garde(request)):
+            return r
+        from core import registre
+        nom = str((await _corps(request)).get("nom", "")).strip()
+        ok = registre.revoquer(nom)
+        return {"ok": ok, "message": f"« {nom} » repasse en confirmation a chaque fois."
+                if ok else "Rien a revoquer pour cet outil."}
 
     LOG.info("panneau monte : /panneau (local uniquement)")

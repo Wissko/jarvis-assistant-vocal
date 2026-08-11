@@ -99,7 +99,12 @@
       <div id="perm-note" class="muted" style="margin-top:10px"></div></div>
     <div class="card"><h2>Accès fichiers d'Hermes (Docker, montages)</h2><div id="mounts"></div></div>
     <div class="card"><h2>Outils &amp; garde-fous</h2>
-      <table><thead><tr><th>Outil</th><th>Exposé MCP</th><th>Confirmation</th><th>Rôle</th></tr></thead>
+      <div class="muted" style="margin-bottom:8px;font-size:12px">
+        <span class="badge">N1 sûr</span> local + iPhone ·
+        <span class="badge" style="background:#2a2410;color:#e9cf7a;border-color:#5a4a12">N2 sensible</span> confirmation, mémorisable ·
+        <span class="badge off">N3 critique</span> 🔒 jamais mémorisable, jamais à distance
+      </div>
+      <table><thead><tr><th>Outil</th><th>Niveau</th><th>Exposé MCP</th><th>Confirmation</th><th>Rôle</th></tr></thead>
       <tbody id="outils"></tbody></table></div>
   </section>
 </main>
@@ -229,17 +234,39 @@ async function chargerPerms(){
   $('#n3').innerHTML=`🔒 <b>Règle N3 (verrouillée dans le code)</b><br>${d.regle_n3}`;
   $('#perm-kpi').innerHTML=`
     <div class="kpi"><div class="v">${d.compte.total}</div><div class="l">outils au total</div></div>
-    <div class="kpi"><div class="v">${d.compte.mcp_expose}</div><div class="l">exposés à Hermes (MCP)</div></div>
-    <div class="kpi"><div class="v">${d.compte.confirmation}</div><div class="l">à confirmation vocale</div></div>`;
+    <div class="kpi"><div class="v">${d.compte.n1}</div><div class="l">N1 sûr (local + iPhone)</div></div>
+    <div class="kpi"><div class="v">${d.compte.n2}</div><div class="l">N2 sensible (${d.compte.toujours} en « toujours »)</div></div>
+    <div class="kpi"><div class="v">${d.compte.n3}</div><div class="l">N3 critique 🔒</div></div>
+    <div class="kpi"><div class="v">${d.compte.mcp_expose}</div><div class="l">exposés à Hermes (MCP)</div></div>`;
   $('#perm-note').textContent=d.note_n8;
   $('#mounts').innerHTML = (d.hermes_montages||[]).map(m=>{
     const ro=m.endsWith(':ro'); return `<div style="padding:3px 0"><span class="badge ${ro?'':'off'}">${ro?'lecture seule':'lecture+écriture'}</span> <span class="mono">${m}</span></div>`;
   }).join('') || '<span class="muted">Aucun montage détecté.</span>';
   $('#outils').innerHTML=d.outils.map(o=>`<tr>
     <td class="mono">${o.nom}</td>
+    <td>${nivBadge(o.niveau)}</td>
     <td>${o.mcp_expose?bYes('oui'):'<span class="badge">non</span>'}</td>
-    <td>${o.confirmation?'<span class="badge on">requise</span>':'<span class="badge">non</span>'}</td>
+    <td>${confCell(o)}</td>
     <td class="muted">${(o.description||'').replace(/</g,'&lt;')}</td></tr>`).join('');
+}
+function nivBadge(n){
+  if(n==='N1')return '<span class="badge on">N1</span>';
+  if(n==='N2')return '<span class="badge" style="background:#2a2410;color:#e9cf7a;border-color:#5a4a12">N2</span>';
+  if(n==='N3')return '<span class="badge off">N3 🔒</span>';
+  return `<span class="badge">${n}</span>`;
+}
+function confCell(o){
+  if(!o.confirmation)return '<span class="badge">non</span>';
+  if(o.niveau==='N3')return '<span class="badge off">requise 🔒</span>';
+  // N2
+  if(o.toujours)return `<span class="badge on">toujours ✓</span>
+    <button class="act ghost" style="padding:2px 8px" onclick="revoquer('${o.nom}',this)">Révoquer</button>`;
+  return '<span class="badge on">requise</span>';
+}
+async function revoquer(nom,btn){
+  btn.disabled=true;
+  const r=await post('/api/panneau/permissions/revoquer',{nom});
+  setTimeout(chargerPerms,300);
 }
 
 function flash(r,cell){

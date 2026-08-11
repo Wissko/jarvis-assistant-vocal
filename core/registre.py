@@ -96,6 +96,71 @@ def exposes_mcp():
     return [o for o in _REGISTRE.values() if o.mcp_expose]
 
 
+# ---------------------------------------------------- niveaux de permission (N8)
+#
+# N1 (sur)      : pas de confirmation -> execute direct, EN LOCAL ET a distance.
+# N2 (sensible) : confirmation ; l'utilisateur peut memoriser "toujours autoriser"
+#                 (revocable) -> plus de question EN LOCAL ; jamais en auto a distance.
+# N3 (critique) : confirmation TOUJOURS ; "toujours" REFUSE ; jamais a distance.
+#                 Verrouille ici. (Le pont iPhone refuse deja tout outil a confirmation,
+#                 quel que soit le store : le "toujours autoriser" n'ouvre RIEN a distance.)
+_N3 = frozenset({
+    "envoyer_mail", "mettre_a_la_corbeille",
+    "call_with_message", "call_and_book",
+    "book_appointment", "confirmer_reservation",
+    "delete_event",
+})
+
+
+def niveau(nom):
+    """Niveau de permission d'un outil : N1 / N2 / N3 (ou '?' si inconnu)."""
+    o = _REGISTRE.get(nom)
+    if o is None:
+        return "?"
+    if not o.confirmation:
+        return "N1"
+    return "N3" if nom in _N3 else "N2"
+
+
+def est_n3(nom):
+    return nom in _N3
+
+
+def autorisations():
+    """Outils N2 memorises 'toujours autoriser' (config securite.toujours)."""
+    from core.config import reglage
+    return [n for n in (reglage("securite.toujours", []) or []) if niveau(n) == "N2"]
+
+
+def est_autorise(nom):
+    """Vrai si on SAUTE la confirmation EN LOCAL (N2 memorise). Jamais un N3 ni un N1."""
+    return niveau(nom) == "N2" and nom in autorisations()
+
+
+def autoriser_toujours(nom):
+    """Memorise 'toujours autoriser' pour un N2. Renvoie True si effectif (N2 uniquement,
+    jamais un N3)."""
+    if niveau(nom) != "N2":
+        return False
+    from core.config import reglage, definir
+    cur = list(reglage("securite.toujours", []) or [])
+    if nom not in cur:
+        cur.append(nom)
+        definir("securite.toujours", cur)
+    return True
+
+
+def revoquer(nom):
+    """Retire un outil du 'toujours autoriser'. Renvoie True si quelque chose a ete retire."""
+    from core.config import reglage, definir
+    cur = list(reglage("securite.toujours", []) or [])
+    if nom in cur:
+        cur.remove(nom)
+        definir("securite.toujours", cur)
+        return True
+    return False
+
+
 def phrase_attente(noms):
     """Phrase d'accuse de reception pour le premier outil lent appele."""
     for o in _REGISTRE.values():
@@ -126,17 +191,34 @@ def annonce_en_attente():
     return f"Je vais executer {outil_obj.nom}."
 
 
-def executer_confirme():
-    """Execute l'action en attente et renvoie son resultat."""
+def nom_en_attente():
+    """Nom de l'outil en attente de confirmation (ou None)."""
+    return _EN_ATTENTE[0].nom if _EN_ATTENTE else None
+
+
+def executer_confirme(memoriser=False):
+    """Execute l'action en attente et renvoie son resultat.
+
+    memoriser=True (l'utilisateur a dit "oui, toujours") : si l'outil est N2, on
+    l'ajoute au 'toujours autoriser' (revocable) ; un N3 REFUSE la memorisation et
+    on le lui dit, mais l'action de ce tour est quand meme executee.
+    """
     global _EN_ATTENTE
     if _EN_ATTENTE is None:
         return ""
     outil_obj, args = _EN_ATTENTE
     _EN_ATTENTE = None
+    suffixe = ""
+    if memoriser:
+        if autoriser_toujours(outil_obj.nom):
+            suffixe = " Je ne te le redemanderai plus pour cette action."
+        else:
+            suffixe = " Mais c'est une action critique : je te demanderai toujours confirmation."
     try:
-        return outil_obj.fonction(**args)
+        res = outil_obj.fonction(**args)
     except Exception:
         return "Desole, je n'ai pas reussi a faire ca."
+    return (str(res) + suffixe) if suffixe else res
 
 
 def annuler_confirme():

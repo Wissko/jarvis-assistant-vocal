@@ -40,20 +40,31 @@ gateway Hermes, Docker, et la **connexion MCP Hermes → Jarvis**. Bouton
 > Le tunnel est **lu**, jamais rouvert (sinon ngrok refuse « endpoint already
 > online »). Budget par fournisseur + tâches/crons Hermes : viendront avec la N9.
 
-## 3. Page Permissions (lecture seule pour l'instant)
+## 3. Page Permissions (niveaux N1/N2/N3 — N8)
 
-Une seule vue = tout le **périmètre de sécurité** :
-- chaque outil avec **`mcp_expose`** et **confirmation** ;
-- la **règle N3** affichée 🔒 (verrouillée dans le code) ;
-- l'**accès fichiers d'Hermes** (montages Docker : `/vault` ro, `/scripts` ro,
-  `/scripts/drafts` rw).
+Une seule vue = tout le **périmètre de sécurité**, avec le **niveau de permission**
+de chaque outil :
 
-Les **niveaux N1/N2/N3** et les **autorisations « toujours » révocables** seront
-ajoutés **avec la N8** (cette page est pour l'instant en lecture seule).
+| Niveau | Sens | Confirmation | « toujours autoriser » | À distance (iPhone) |
+|---|---|---|---|---|
+| **N1** sûr | domotique, PC, lectures | non | — | **oui** |
+| **N2** sensible | actions réversibles | oui | **mémorisable** (révocable ici) | non |
+| **N3** critique 🔒 | mail, appels, réservations, suppressions | **toujours** | **jamais** | jamais |
+
+- **Mémoriser un N2** : à la voix, réponds **« oui, toujours »** à la demande de
+  confirmation → l'outil passe en « toujours autorisé » **en local** (stocké dans
+  `config.yaml → securite.toujours`). La page l'affiche avec un bouton **Révoquer**.
+- **N3** : confirmation à chaque fois, « toujours » refusé, jamais à distance —
+  **verrouillé dans le code** (`core/registre.py → _N3`).
+- Le **« toujours autoriser » n'ouvre RIEN à distance** : le pont iPhone teste
+  `confirmation` en direct, il ne consulte jamais le store.
+
+La page montre aussi l'**accès fichiers d'Hermes** (montages Docker : `/vault` ro,
+`/scripts` ro, `/scripts/drafts` rw).
 
 ## Sécurité
 
 - **Local only** : garde sur chaque route (`X-Forwarded-For` / `Host`).
-- **Écriture limitée** au sans-danger : sélection de modèle, révocations (à
-  venir), reconnexion MCP. Jamais les règles N3.
+- **Écriture limitée** au sans-danger : sélection de modèle, **révocation d'une
+  autorisation « toujours »**, reconnexion MCP. Jamais les règles N3.
 - Rien de nouveau n'est accordé à Hermes : le panneau **observe** sa config.

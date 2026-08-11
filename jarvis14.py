@@ -311,6 +311,11 @@ def _est_oui(texte):
     return any(m in plat for m in MOTS_OUI)
 
 
+def _est_toujours(texte):
+    """Vrai si l'utilisateur ajoute 'toujours' (memoriser l'autorisation, N2)."""
+    return bool(texte) and "toujours" in sans_accents(texte)
+
+
 def nettoyer(texte):
     """Retire le residu du mot d'activation en tete de transcription."""
     t = texte.strip()
@@ -411,7 +416,9 @@ def _executer_outils(blocs):
 
         if outil is None:
             resultat = f"Outil inconnu : {nom}"
-        elif outil.confirmation:
+        elif outil.confirmation and not registre.est_autorise(nom):
+            # N2 memorise "toujours autoriser" -> on n'attend pas (est_autorise True).
+            # Un N3 n'est jamais autorise d'avance : il repasse toujours par ici.
             resultat = registre.mettre_en_attente(outil, arguments)
         else:
             try:
@@ -504,8 +511,12 @@ def repondre(historique):
                 if fil_accuse:
                     fil_accuse.join()
                 _hud("etat", "parole")
+                phrase = annonce + " Tu confirmes ?"
+                # Pour un outil N2, rappeler qu'on peut memoriser l'autorisation.
+                if registre.niveau(registre.nom_en_attente() or "") == "N2":
+                    phrase += " Tu peux dire oui, toujours."
                 if not _INTERRUPTION.is_set():
-                    dire(annonce + " Tu confirmes ?", interruptible=False)
+                    dire(phrase, interruptible=False)
                 return SENTINEL_CONFIRM
             continue
 
@@ -757,8 +768,9 @@ def _confirmer(interrompu, relancer, whisper, historique, flux):
         reponse = nettoyer(" ".join(s.text for s in seg).strip())
     print(f"  [confirmation] {reponse or '(rien)'}")
 
-    if _est_oui(reponse):
-        res = registre.executer_confirme()
+    memoriser = _est_toujours(reponse)
+    if _est_oui(reponse) or memoriser:
+        res = registre.executer_confirme(memoriser=memoriser)
     else:
         registre.annuler_confirme()
         res = "D'accord, j'annule."
