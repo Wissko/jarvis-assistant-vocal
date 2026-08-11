@@ -1,0 +1,152 @@
+"""Delegation d'une tache a Hermes Agent (cerveau delibératif) via son API locale.
+
+Flux : Jarvis envoie la tache a l'API d'Hermes (gateway loopback 8642), repond
+TOUT DE SUITE "je delegue, je te previens", puis - en tache de fond - recupere le
+resultat, le passe au FILTRE DE CONFIDENTIALITE, et l'annonce a voix haute (resume
+court). Session persistante entre delegations (parametre `conversation`).
+
+Securite :
+- NON expose via MCP (mcp_expose defaut False) : un agent externe ne peut pas
+  declencher de delegation.
+- confirmation vocale requise (une delegation peut couter et durer).
+- le resultat lu a voix haute passe par core.confidentialite.filtrer().
+Voir docs/hermes.md.
+"""
+import threading
+from pathlib import Path
+
+from core import voix, confidentialite
+from core.config import reglage
+from core.registre import outil
+
+# Magasin de certificats Windows (Malwarebytes/AV) puis requests.
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except Exception:
+    pass
+import requests
+
+
+def _cle_api() -> str:
+    """Cle API du serveur Hermes : config.yaml hermes.api_key, sinon fichier."""
+    cle = reglage("hermes.api_key", "")
+    if cle:
+        return cle
+    chemin = reglage("hermes.api_key_file", "")
+    if chemin:
+        try:
+            contenu = Path(chemin).read_text(encoding="utf-8").strip()
+            return contenu.split("=", 1)[-1].strip()   # gere "API_SERVER_KEY=xxx"
+        except Exception:
+            pass
+    return ""
+
+
+def _appeler_hermes(tache: str) -> str:
+    base = reglage("hermes.api_url", "http://127.0.0.1:8642").rstrip("/")
+    cle = _cle_api()
+    if not cle:
+        raise RuntimeError("cle API Hermes introuvable (hermes.api_key)")
+    prompt = (
+        f"{tache}\n\n"
+        "IMPORTANT : effectue la tache MAINTENANT et renvoie la reponse COMPLETE et "
+        "definitive dans CE meme message. N'annonce PAS que tu vas le faire, ne dis "
+        "pas 'un instant'. Reponds en francais. Termine IMPERATIVEMENT par une "
+        "derniere ligne commencant par 'RESUME:' suivie de 2 phrases maximum, "
+        "claires et actionnables, redigees pour une lecture a voix haute."
+    )
+    body = {
+        "model": "hermes-agent",
+        "input": prompt,
+        "conversation": reglage("hermes.session", "jarvis-delegation"),
+    }
+    reponse = requests.post(
+        f"{base}/v1/responses", json=body,
+        headers={"Authorization": f"Bearer {cle}"},
+        timeout=int(reglage("hermes.timeout", 900)),
+    )
+    reponse.raise_for_status()
+    data = reponse.json()
+    morceaux = []
+    for item in data.get("output", []):
+        if item.get("type") == "message":
+            for bloc in item.get("content", []):
+                if bloc.get("type") == "output_text" and bloc.get("text"):
+                    morceaux.append(bloc["text"])
+    return "\n".join(morceaux).strip() or "(reponse vide d'Hermes)"
+
+
+def _resume_vocal(texte: str) -> str:
+    """Extrait la ligne 'RESUME:' (sinon le dernier paragraphe) pour la voix."""
+    for ligne in reversed((texte or "").splitlines()):
+        l = ligne.strip()
+        if l.lower().startswith(("resume:", "resume :", "résumé:", "résumé :")):
+            return l.split(":", 1)[1].strip()
+    paras = [p.strip() for p in (texte or "").splitlines() if p.strip()]
+    return paras[-1] if paras else (texte or "")
+
+
+def _journaliser(tache: str, resultat: str) -> None:
+    """Garde le resultat COMPLET dans logs/hermes/ (la voix ne dit que le resume)."""
+    try:
+        from datetime import datetime
+        dossier = Path(__file__).resolve().parent.parent / "logs" / "hermes"
+        dossier.mkdir(parents=True, exist_ok=True)
+        horo = datetime.now().strftime("%Y%m%d-%H%M%S")
+        (dossier / f"delegation-{horo}.md").write_text(
+            f"# Delegation {horo}\n\n## Tache\n{tache}\n\n## Resultat\n{resultat}\n",
+            encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _annonce(args):
+    tache = (args.get("tache") or "").strip()
+    court = tache if len(tache) <= 120 else tache[:120] + "..."
+    return f"Je vais deleguer a Hermes : {court}."
+
+
+@outil(
+    nom="deleguer_a_hermes",
+    description=(
+        "Delegue une tache de REFLEXION ou de RECHERCHE DE FOND a Hermes (agent "
+        "delibératif tournant en local) et fait annoncer le resultat a voix haute "
+        "quand c'est pret. A utiliser quand l'utilisateur dit 'delegue a Hermes...', "
+        "'fais une recherche de fond sur...', 'lance Hermes sur...', ou pour une "
+        "tache longue/analytique qui merite de la reflexion. Jarvis repond tout de "
+        "suite puis previent vocalement a la fin. NE PAS utiliser pour une question "
+        "simple a laquelle tu peux repondre directement."
+    ),
+    parametres={
+        "type": "object",
+        "properties": {
+            "tache": {
+                "type": "string",
+                "description": "La tache/question a confier a Hermes, formulee clairement.",
+            }
+        },
+        "required": ["tache"],
+    },
+    confirmation=True,
+    annonce=_annonce,
+)
+def deleguer_a_hermes(tache: str) -> str:
+    """Envoie la tache a Hermes en tache de fond ; previent a voix haute a la fin."""
+    tache = (tache or "").strip()
+    if not tache:
+        return "Je n'ai pas compris la tache a deleguer."
+
+    def worker():
+        try:
+            resultat = _appeler_hermes(tache)
+            _journaliser(tache, resultat)
+            resume = confidentialite.filtrer(
+                _resume_vocal(resultat), max_car=int(reglage("hermes.resume_max", 500)))
+            voix.parler("Hermes a termine. " + resume)
+        except Exception as e:
+            voix.parler("La delegation a Hermes a echoue. "
+                        + confidentialite.filtrer(str(e), 120))
+
+    threading.Thread(target=worker, daemon=True, name="deleguer-hermes").start()
+    return "Je delegue ca a Hermes. Je te previens des que c'est pret."
