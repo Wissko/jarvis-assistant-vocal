@@ -17,10 +17,25 @@ un resto ni passer un appel.
 """
 import logging
 import secrets
+from pathlib import Path
 
 from core.config import reglage
 
 LOG = logging.getLogger("jarvis")
+
+# Journal dedie au pont iPhone : une trace par requete -> logs/inbox.log. Permet de
+# diagnostiquer un POST qui echoue cote iOS (content-type, corps, erreur) sans jamais
+# fermer la connexion en silence.
+_LOGI = logging.getLogger("jarvis.inbox")
+if not _LOGI.handlers:
+    _d = Path(__file__).resolve().parent.parent / "logs"
+    _d.mkdir(exist_ok=True)
+    _h = logging.FileHandler(_d / "inbox.log", encoding="utf-8")
+    _h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s",
+                                      "%Y-%m-%d %H:%M:%S"))
+    _LOGI.addHandler(_h)
+    _LOGI.setLevel(logging.INFO)
+    _LOGI.propagate = False
 
 
 def _token_ok(fourni):
@@ -90,56 +105,89 @@ def _inspiration_async(url, commentaire):
 
 
 def monter_routes(app):
-    """Ajoute les routes du pont iPhone (/api/inbox, /api/ping) au serveur unifie."""
-    import threading
+    """Ajoute les routes du pont iPhone (/api/inbox, /api/ping) au serveur unifie.
 
-    from fastapi import Header, HTTPException
-    from pydantic import BaseModel
+    Le handler POST est volontairement TOLERANT (iOS Raccourcis peut envoyer un
+    content-type inattendu) : on lit le corps brut et on le parse en JSON, avec repli
+    form-urlencoded. Toute erreur est LOGGEE (logs/inbox.log) et renvoyee proprement
+    en JSON, jamais en fermeture de connexion.
+    """
+    import json as _json
+    import threading
+    from urllib.parse import parse_qs
+
+    from fastapi import Request
+    from fastapi.responses import JSONResponse
     from tools.notes import ajouter_note
 
-    class Entree(BaseModel):
-        type: str
-        contenu: str | None = None
-        categorie: str | None = None
-        url: str | None = None
-        commentaire: str | None = None
-
     @app.post("/api/inbox")
-    def inbox(entree: Entree, x_jarvis_token: str = Header(default="")):
-        if not _token_ok(x_jarvis_token):
-            raise HTTPException(status_code=401, detail="Token invalide.")
+    async def inbox(request: Request):
+        try:
+            raw = await request.body()
+        except Exception:
+            raw = b""
+        ct = request.headers.get("content-type", "")
+        ua = request.headers.get("user-agent", "")
+        _LOGI.info("POST /api/inbox | ct=%r | len=%d | ua=%r", ct, len(raw or b""), ua[:60])
 
-        if entree.type == "note":
-            contenu = (entree.contenu or "").strip()
-            if not contenu:
-                raise HTTPException(status_code=400, detail="Contenu vide.")
-            cat, _ = ajouter_note(contenu, entree.categorie, source="iPhone")
-            return {"ok": True, "action": "note", "categorie": cat,
-                    "message": f"Note ajoutee dans « {cat} »."}
+        if not _token_ok(request.headers.get("x-jarvis-token", "")):
+            _LOGI.warning("  -> token invalide")
+            return JSONResponse({"ok": False, "message": "Token invalide."}, status_code=401)
 
-        if entree.type == "commande":
-            contenu = (entree.contenu or "").strip()
-            if not contenu:
-                raise HTTPException(status_code=400, detail="Contenu vide.")
-            r = traiter_commande(contenu)
-            return {"ok": r["ok"], "action": "commande",
-                    "message": r["reponse"], "faits": r.get("faits", [])}
+        # Parsing tolerant : JSON quel que soit le content-type, sinon form-urlencoded.
+        data, texte = {}, (raw or b"").decode("utf-8", "ignore").strip()
+        if texte:
+            try:
+                data = _json.loads(texte)
+            except Exception:
+                try:
+                    data = {k: v[0] for k, v in parse_qs(texte).items()}
+                except Exception:
+                    data = {}
+        if not isinstance(data, dict):
+            data = {}
+        typ = str(data.get("type", "")).strip().lower()
 
-        if entree.type == "inspiration":
-            # url dans "url" (ou "contenu" en repli), commentaire optionnel.
-            url = (entree.url or entree.contenu or "").strip()
-            if not url:
-                raise HTTPException(status_code=400, detail="url manquante.")
-            # Tache de fond (telechargement + transcription + indexation = long) ;
-            # Jarvis previent a voix haute quand la fiche est indexee.
-            threading.Thread(target=_inspiration_async,
-                             args=(url, entree.commentaire), daemon=True,
-                             name="inspiration").start()
-            return {"ok": True, "action": "inspiration",
-                    "message": "Inspiration recue, je l'ajoute au vault et je te previens."}
+        try:
+            if typ == "note":
+                contenu = str(data.get("contenu", "")).strip()
+                if not contenu:
+                    return JSONResponse({"ok": False, "message": "Contenu vide."}, status_code=400)
+                cat, _ = ajouter_note(contenu, data.get("categorie"), source="iPhone")
+                _LOGI.info("  -> note rangee dans %s : %s", cat, contenu[:60])
+                return {"ok": True, "action": "note", "categorie": cat,
+                        "message": f"Note ajoutee dans {cat}."}
 
-        raise HTTPException(status_code=400,
-                            detail="type inconnu (note, commande ou inspiration).")
+            if typ == "commande":
+                contenu = str(data.get("contenu", "")).strip()
+                if not contenu:
+                    return JSONResponse({"ok": False, "message": "Contenu vide."}, status_code=400)
+                r = traiter_commande(contenu)
+                _LOGI.info("  -> commande : %s", str(r.get("reponse"))[:80])
+                return {"ok": r["ok"], "action": "commande",
+                        "message": r["reponse"], "faits": r.get("faits", [])}
+
+            if typ == "inspiration":
+                url = (str(data.get("url", "")) or str(data.get("contenu", ""))).strip()
+                if not url:
+                    return JSONResponse({"ok": False, "message": "url manquante."}, status_code=400)
+                threading.Thread(target=_inspiration_async,
+                                 args=(url, data.get("commentaire")), daemon=True,
+                                 name="inspiration").start()
+                _LOGI.info("  -> inspiration en tache de fond : %s", url)
+                return {"ok": True, "action": "inspiration",
+                        "message": "Inspiration recue, je l'ajoute au vault et je te previens."}
+
+            _LOGI.warning("  -> type inconnu : %r (corps: %s)", typ, texte[:120])
+            return JSONResponse(
+                {"ok": False, "message": "type inconnu (note, commande ou inspiration)."},
+                status_code=400)
+        except Exception as e:
+            # On LOGGE et on renvoie proprement (200) : jamais de connexion coupee cote iOS.
+            _LOGI.exception("  -> ERREUR handler inbox")
+            return JSONResponse(
+                {"ok": False, "message": f"Erreur interne ({type(e).__name__}), voir logs/inbox.log."},
+                status_code=200)
 
     @app.get("/api/ping")
     def ping():

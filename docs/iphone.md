@@ -69,8 +69,17 @@ Ainsi : surligne un texte n'importe où (Safari, Notes, un message…) → **Par
 
 ### 🅒 « Dis à Jarvis » (commande à distance)
 
-Comme 🅐, mais `type` = **`commande`**. La phrase dictée (« éteins les lumières »,
-« mode film ») est exécutée par Jarvis à la maison.
+Identique à 🅐 **champ par champ**, sauf le corps JSON :
+- Action **« Demander une entrée »** → Type : Texte → invite « Ta commande ? » (dictée au micro).
+- Action **« Obtenir le contenu de l'URL »** : URL `.../api/inbox` · **POST** · en-tête
+  `X-Jarvis-Token` = ton token · Corps **JSON** : `type` = `commande` · `contenu` =
+  *la variable « Entrée fournie »* (la phrase dictée).
+
+La phrase (« éteins les lumières », « mode film ») est traitée par Jarvis à la maison
+**comme du vocal**, mais — **doctrine du pont** — **seuls les outils sûrs** (domotique/PC)
+s'exécutent à distance : toute action sensible (mail, réservation, appel, suppression…) est
+**refusée** avec « à faire à la voix à la maison ». **Jamais de « toujours autoriser » depuis
+le distant** : un token volé ne peut qu'allumer/éteindre des lumières.
 
 👉 Astuce : nomme-le exactement **« Dis à Jarvis »**. Tu pourras alors dire à Siri :
 **« Dis Siri, Dis à Jarvis, mode film »** → Siri devient ta télécommande à distance.
