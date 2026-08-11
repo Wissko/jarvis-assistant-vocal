@@ -127,11 +127,24 @@ depuis le téléphone, **zéro nouvelle installation**.
 **Veille IA hebdo** : cron Hermes `veille-ia-hebdo` (vendredi 18h → Telegram). Gérer :
 `hermes cron list|run|edit|remove`. En créer d'autres : « crée une veille sur <sujet> » (skill).
 
-> ⚠️ **YouTube exige désormais des cookies** (bot-detection : `HTTP 429` / « Sign in to confirm
-> you're not a bot »). `ingest.sh` télécharge sans cookies → l'ingestion YouTube échoue (le tool
-> le **dit à voix haute**, pas d'échec muet). Fix propre (à appliquer dans le projet Scripts, même
-> méthode que l'Insta, **sans credentials en clair**) : ajouter `--cookies-from-browser firefox`
-> aux appels yt-dlp d'`ingest.sh`/`ytdlp_run.py` (et éventuellement installer un runtime JS : `node`).
+### Dépendances de l'ingestion YouTube
+`lancer_ingestion_youtube` → `ingest.sh` (projet Scripts) dépend de deux choses :
+
+1. **Firefox installé + une session YouTube/Google connectée.** `ytdlp_run.py` injecte
+   `--cookies-from-browser firefox` (**aucun identifiant en clair**) pour passer la
+   **bot-detection** de YouTube (`HTTP 429` / « Sign in to confirm you're not a bot »).
+   ✅ **Appliqué** (commit Scripts *« fix: cookies navigateur… »*).
+   - **Si Firefox n'est pas connecté à YouTube** → yt-dlp échoue sur la bot-detection, et le
+     tool l'**annonce à voix haute** (« aucune transcription… »), **jamais d'échec muet**.
+2. ⚠️ **Un runtime JS + solveur de challenge** (yt-dlp récent en a besoin pour résoudre la
+   signature du player YouTube). Sans lui : *« Signature solving failed / Only images are
+   available »*. C'est un problème **yt-dlp ↔ YouTube général** (pas propre à ce pipeline),
+   **hors du fix minimal cookies**. Pour le résoudre entièrement : installer **deno** (runtime
+   par défaut de yt-dlp) ou le solveur **EJS** (cf. wiki yt-dlp). L'échec reste **annoncé
+   vocalement**, jamais silencieux.
+
+> L'ingestion **Instagram/TikTok** (le pipeline principal des inspirations) **n'est PAS
+> concernée** par ce challenge JS et fonctionne normalement.
 
 ## Sécurité
 
