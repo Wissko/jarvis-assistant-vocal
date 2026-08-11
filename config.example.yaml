@@ -196,3 +196,6 @@ hub:                           # indexeur/pipeline du hub de contenu
   timeout_ingest: 600          # secondes max pour telecharger + transcrire une video (Insta/TikTok)
   timeout_youtube: 3600        # secondes max pour une ingestion YouTube (chaine + Whisper, cote hote)
   miroir_dossier: ""           # miroir de index.md + vault.html vers un dossier synchro (ex. iCloudDrive) ; vide = pas de miroir
+
+suivi:                         # suivi de contenus (pipeline video) ; voir docs/suivi_contenu.md
+  fichier: "contenus.yaml"     # liste des contenus (non versionnee) ; chemin relatif = racine du projet

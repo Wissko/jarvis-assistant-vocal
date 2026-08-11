@@ -11,6 +11,7 @@ wheels/
 
 # Secrets et donnees personnelles (ne JAMAIS versionner)
 config.yaml
+contenus.yaml
 memoire.json
 memory.json
 google_credentials.json

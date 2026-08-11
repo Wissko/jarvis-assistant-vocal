@@ -24,6 +24,13 @@ def faire_brief() -> str:
             morceaux.append(deadlines)
     except Exception:
         pass
+    try:
+        from tools.suivi import contenus_du_brief
+        retard = contenus_du_brief()
+        if retard:
+            morceaux.append(retard)
+    except Exception:
+        pass
     if _mail_configure():
         morceaux.append(lire_mails(5))
     return " ".join(morceaux)
