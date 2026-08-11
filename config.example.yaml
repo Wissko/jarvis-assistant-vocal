@@ -175,3 +175,21 @@ presence:                      # detection de presence (ping de l'iPhone sur le 
 #     - {piece: "salon", couleur: "orange", luminosite: 15}
 #   gaming:
 #     - {piece: "salon", couleur: "bleu", luminosite: 60}
+
+hermes:                        # delegation a Hermes Agent (facultatif ; voir docs/hermes.md)
+  api_url: "http://127.0.0.1:8642"   # API locale d'Hermes (gateway, loopback uniquement)
+  api_key: ""                        # cle du serveur API d'Hermes (= API_SERVER_KEY de son .env)
+  # api_key_file: ""                 # alternative : chemin d'un fichier contenant la cle
+  session: "jarvis-delegation"       # session persistante (contexte partage entre delegations)
+  timeout: 900                       # secondes max d'une delegation (une recherche de fond peut durer)
+  resume_max: 500                    # longueur max du resume lu a voix haute (filtre de confidentialite)
+
+integrations:                  # chemins des projets externes (hub de contenu ; voir docs/hub_contenu.md)
+  vault: "C:/Users/TON-NOM/Vault"                  # base des fiches Insta/TikTok (ingest.py, index.md, build_vault.py)
+  scripts: "C:/Users/TON-NOM/Downloads/Scripts"    # projet scripts video (transcription YouTube, ecriture)
+  cookies: "firefox"                               # navigateur pour les cookies yt-dlp (Instagram prive)
+
+hub:                           # indexeur/pipeline du hub de contenu
+  modele: ""                   # modele Claude pour l'indexation (vide = anthropic.modele)
+  timeout_ingest: 600          # secondes max pour telecharger + transcrire une video
+  miroir_dossier: ""           # miroir de index.md + vault.html vers un dossier synchro (ex. iCloudDrive) ; vide = pas de miroir

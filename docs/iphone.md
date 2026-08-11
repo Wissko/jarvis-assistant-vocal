@@ -75,6 +75,26 @@ Comme 🅐, mais `type` = **`commande`**. La phrase dictée (« éteins les lumi
 👉 Astuce : nomme-le exactement **« Dis à Jarvis »**. Tu pourras alors dire à Siri :
 **« Dis Siri, Dis à Jarvis, mode film »** → Siri devient ta télécommande à distance.
 
+### 🅓 « Inspiration Jarvis » (partager un reel → vault de contenu)
+
+Pour capter une inspiration (Insta/TikTok) en 2 taps depuis la **feuille de partage**.
+
+1. Réglages du raccourci (⚙︎) → active **« Afficher dans la feuille de partage »**,
+   type d'entrée : **URL** (et Texte).
+2. *(optionnel)* Action **« Demander une entrée »** → invite « Pourquoi ? (hook, format…) »
+   → tu peux laisser vide.
+3. Action **« Obtenir le contenu de l'URL »** :
+   - URL : `https://ton-domaine.ngrok-free.dev/api/inbox`
+   - Méthode : **POST** · En-têtes : `X-Jarvis-Token` = `ton token`
+   - Corps **JSON** : `type` = `inspiration` · `url` = *variable « Entrée du raccourci »* ·
+     `commentaire` = *la variable de l'étape 2 (ou vide)*
+4. Action **« Afficher la note »** (facultatif) → *Message* de la réponse.
+
+Nomme-le **« Inspiration Jarvis »**. Usage : sur un reel → **Partager** →
+**« Inspiration Jarvis »** → (option) tape ton commentaire → c'est envoyé. Jarvis
+télécharge, transcrit, indexe **en fond**, puis **t'annonce à voix haute** :
+« Inspiration ajoutée au vault : *titre* — *auteur* ». (Détails : docs/hub_contenu.md.)
+
 ## 3. Ce que Jarvis fait
 
 - **type `note`** → range la note dans le bon fichier (`idees.md`, `courses.md`,
