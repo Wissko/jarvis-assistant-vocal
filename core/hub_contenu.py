@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -36,6 +37,32 @@ except Exception:
 from core.config import reglage
 
 LOG = logging.getLogger("jarvis")
+
+# Journal dedie au hub : une trace par etape -> logs/hub.log (plus d'echec silencieux).
+_LOGH = logging.getLogger("jarvis.hub")
+if not _LOGH.handlers:
+    _dlog = Path(__file__).resolve().parent.parent / "logs"
+    _dlog.mkdir(exist_ok=True)
+    _fh = logging.FileHandler(_dlog / "hub.log", encoding="utf-8")
+    _fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s",
+                                       "%Y-%m-%d %H:%M:%S"))
+    _LOGH.addHandler(_fh)
+    _LOGH.setLevel(logging.INFO)
+    _LOGH.propagate = False
+
+
+def _python() -> str:
+    """Python qui possede les deps d'ingest.py (yt-dlp, faster-whisper, gallery-dl) :
+    le python SYSTEME, PAS le venv de Jarvis (qui ne les a pas). Configurable via
+    integrations.python."""
+    cfg = reglage("integrations.python", "")
+    if cfg:
+        return cfg
+    cand = r"C:\Python313\python.exe"
+    if Path(cand).exists():
+        return cand
+    return shutil.which("python") or "python"
+
 
 _URL_INSTA_TIKTOK = re.compile(
     r"(instagram\.com/(?:p|reel|tv)/([A-Za-z0-9_-]+))"
@@ -265,12 +292,13 @@ def _lancer(cmd, vault: Path, timeout=180) -> tuple:
 
 def _rendre_vault(vault: Path) -> None:
     """graphe.py (themes -> fiches + themes/) puis build_vault.py (vault.html)."""
-    code, sortie = _lancer([sys.executable, "graphe.py"], vault, timeout=120)
-    if code != 0:
-        LOG.warning("graphe.py code %s : %s", code, sortie[-300:])
-    code, sortie = _lancer([sys.executable, "build_vault.py"], vault, timeout=120)
-    if code != 0:
-        LOG.warning("build_vault.py code %s : %s", code, sortie[-300:])
+    py = _python()
+    for script in ("graphe.py", "build_vault.py"):
+        code, sortie = _lancer([py, script], vault, timeout=120)
+        if code != 0:
+            _LOGH.warning("%s code %s : %s", script, code, (sortie or "")[-300:])
+        else:
+            _LOGH.info("%s OK", script)
 
 
 def _miroir(vault: Path) -> str:
@@ -312,11 +340,14 @@ def _ingerer_brut(url: str, vault: Path) -> Path:
                                      encoding="utf-8") as tmp:
         tmp.write(url + "\n")
         fichier_liens = tmp.name
+    py = _python()
+    _LOGH.info("ingest.py demarre | url=%s | python=%s | cookies=%s", url, py, _cookies())
     try:
         code, sortie = _lancer(
-            [sys.executable, "ingest.py", fichier_liens,
+            [py, "ingest.py", fichier_liens,
              "--vault", str(vault), "--cookies", _cookies(), "--limite", "1"],
             vault, timeout=int(reglage("hub.timeout_ingest", 600)))
+        _LOGH.info("ingest.py code=%s | sortie: %s", code, (sortie or "").strip()[-500:])
     finally:
         try:
             os.unlink(fichier_liens)
@@ -325,19 +356,29 @@ def _ingerer_brut(url: str, vault: Path) -> Path:
 
     # fiche creee ?
     if attendu and attendu.exists():
+        _LOGH.info("ingest OK -> raw/%s", attendu.name)
         return attendu
-    # sinon : diagnostic via journal.json (statut echec + erreur)
+    # sinon : diagnostic (journal.json d'abord : statut echec + erreur exacte)
+    erreur = None
     try:
         journal = json.loads((vault / "journal.json").read_text(encoding="utf-8"))
         entree = journal.get(url) or {}
         if entree.get("statut") == "echec":
-            raise RuntimeError(
-                "video privee ou indisponible : "
-                + (entree.get("erreur") or "telechargement impossible"))
+            erreur = ("video privee ou indisponible : "
+                      + (entree.get("erreur") or "telechargement impossible"))
     except (OSError, json.JSONDecodeError):
         pass
-    raise RuntimeError("aucune fiche produite (video privee/indisponible ou lien invalide). "
-                       + sortie[-200:].strip())
+    if not erreur:
+        bas = (sortie or "").lower()
+        if "no module named" in bas:
+            erreur = ("environnement Python incomplet pour ingest.py "
+                      "(yt-dlp/faster-whisper/gallery-dl manquants). Detail: "
+                      + (sortie or "")[-160:].strip())
+        else:
+            erreur = ("aucune fiche produite (video privee/indisponible, cookies non "
+                      "reconnus, ou lien invalide). " + (sortie or "")[-200:].strip())
+    _LOGH.error("ingest ECHEC | url=%s | %s", url, erreur)
+    raise RuntimeError(erreur)
 
 
 # ------------------------------------------------------------- API publique
@@ -376,18 +417,23 @@ def ingerer_inspiration(url: str, commentaire: str = "") -> dict:
     """Pipeline complet depuis une URL : ingest.py (brut) -> indexeur -> rendu.
     Renvoie un dict avec ok/titre/auteur/message (pour la notif vocale de Jarvis)."""
     vault = _vault()
+    _LOGH.info("=== inspiration recue | url=%s | commentaire=%r ===", url, commentaire)
     if not vault.exists():
+        _LOGH.error("Vault introuvable : %s", vault)
         return {"ok": False, "message": f"Vault introuvable : {vault}"}
     try:
         fiche = _ingerer_brut(url, vault)
     except Exception as e:
-        return {"ok": False, "message": f"Echec de l'ingestion : {e}"}
+        return {"ok": False, "message": f"Echec du telechargement : {e}"}
     try:
+        _LOGH.info("indexation de raw/%s ...", fiche.name)
         res = indexer_fiche(fiche, commentaire)
         res["url"] = url
+        _LOGH.info("inspiration TERMINEE | %s", res.get("message"))
         return res
     except Exception as e:
         LOG.exception("indexation")
+        _LOGH.exception("indexation echouee")
         return {"ok": False, "message": f"Fiche telechargee mais indexation echouee : {e}"}
 
 

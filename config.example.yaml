@@ -188,6 +188,7 @@ integrations:                  # chemins des projets externes (hub de contenu ; 
   vault: "C:/Users/TON-NOM/Vault"                  # base des fiches Insta/TikTok (ingest.py, index.md, build_vault.py)
   scripts: "C:/Users/TON-NOM/Downloads/Scripts"    # projet scripts video (transcription YouTube, ecriture)
   cookies: "firefox"                               # navigateur pour les cookies yt-dlp (Instagram prive)
+  python: ""                                       # python qui a les deps d'ingest.py (yt-dlp/faster-whisper/gallery-dl) ; vide = auto (C:/Python313)
 
 hub:                           # indexeur/pipeline du hub de contenu
   modele: ""                   # modele Claude pour l'indexation (vide = anthropic.modele)
