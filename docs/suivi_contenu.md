@@ -31,11 +31,18 @@ Le pipeline est ordonné : **idée → script → tournage → montage → publi
 |---|---|---|
 | « nouvelle idée de vidéo : *titre* » | `nouvelle_idee_video` | crée l'entrée en statut `idee` (et l'ajoute aussi à tes **notes** `idees.md`) |
 | « passe *titre* en tournage » | `changer_statut_contenu` | fait avancer le statut (titre en recherche floue, statut tolérant à la voix) |
-| « où j'en suis ? » | `ou_j_en_suis` | résumé du pipeline (combien d'idées/scripts/…) **+ ce qui est en retard ou à échéance proche** |
+| « où j'en suis ? » | `ou_j_en_suis` | résumé du pipeline (combien d'idées/scripts/…) **+ ce qui est en retard ou à échéance proche + croisement avec ton Google Agenda** |
+
+**Croisement agenda** : `ou_j_en_suis` lit aussi ton **Google Agenda** (21 jours) et
+rapproche chaque contenu d'un **créneau** portant le même sujet (« *Callé à
+l'agenda : « … » vendredi 14* »), puis liste les prochaines **deadlines** des
+calendriers Loopstr. Si l'agenda n'est pas configuré, l'outil **dégrade en
+silence** (il rend juste le pipeline) et ne déclenche jamais de connexion OAuth
+interactive.
 
 **Le brief du matin** (`faire_brief`) signale automatiquement les contenus **en
-retard** ou **à boucler bientôt** (deadline ≤ 3 j), à côté des deadlines de
-l'agenda. Un contenu `publie` n'est jamais compté en retard.
+retard** ou **à boucler bientôt** (deadline ≤ 3 j du champ `deadline`), à côté des
+deadlines de l'agenda. Un contenu `publie` n'est jamais compté en retard.
 
 ## Côté Hermes (lecture seule via MCP)
 

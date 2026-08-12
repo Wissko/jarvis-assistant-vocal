@@ -120,6 +120,85 @@ def _retards_et_bientot(contenus):
     return retards, bientot
 
 
+# --------------------------------------------------- croisement agenda (Google)
+
+# Mots trop generiques pour rapprocher un contenu d'un evenement agenda.
+_MOTS_GENERIQUES = {"video", "reel", "reels", "short", "shorts", "montage",
+                    "tournage", "script", "publie", "contenu", "publication"}
+
+
+def _mots_cles(txt):
+    return {m for m in sans_accents(str(txt).lower()).split()
+            if len(m) >= 5 and m not in _MOTS_GENERIQUES}
+
+
+def _agenda_a_venir(jours=21):
+    """Evenements agenda a venir : [(datetime, titre, calendrier, est_deadline)].
+    Renvoie [] si l'agenda n'est pas configure/joignable (degradation propre) ;
+    ne declenche JAMAIS le flux OAuth interactif (verifie le token d'abord)."""
+    try:
+        import datetime as _dt
+        from tools import agenda
+        if not agenda._chemin("agenda.token", "google_token.json").exists():
+            return []
+        service = agenda._service()
+        debut = _dt.datetime.now().astimezone()
+        fin = debut + _dt.timedelta(days=jours)
+        evs = []
+        for cid, info in agenda._calendriers(service).items():
+            try:
+                res = service.events().list(
+                    calendarId=cid, timeMin=debut.isoformat(), timeMax=fin.isoformat(),
+                    singleEvents=True, orderBy="startTime", maxResults=50).execute()
+            except Exception:
+                continue
+            for e in res.get("items", []):
+                d, _tj = agenda._debut_ev(e)
+                if d is None:
+                    continue
+                evs.append((d, e.get("summary", "(sans titre)"),
+                            info["nom"], agenda._est_loopstr(info["nom"])))
+        evs.sort(key=lambda x: x[0])
+        return evs
+    except Exception:
+        LOG.info("suivi: agenda indisponible pour le croisement")
+        return []
+
+
+def _croisement_agenda(contenus):
+    """Rapproche contenus <-> evenements agenda + prochaines deadlines agenda.
+    Renvoie une phrase (ou "" si l'agenda est vide/indispo)."""
+    evs = _agenda_a_venir()
+    if not evs:
+        return ""
+    from tools import agenda
+    bouts = []
+    # 1) contenus (non publies) qui ont un creneau a l'agenda
+    rappro = []
+    for c in contenus:
+        if c.get("statut") == "publie":
+            continue
+        titre = sans_accents(str(c.get("titre", "")).lower()).strip()
+        if not titre:
+            continue
+        mots = _mots_cles(titre)
+        for d, sujet, _cal, _dl in evs:
+            sp = sans_accents(sujet.lower())
+            if titre in sp or sp in titre or (mots and mots & _mots_cles(sujet)):
+                rappro.append((c.get("titre", ""), d))
+                break
+    if rappro:
+        rappro.sort(key=lambda x: x[1])
+        items = " ; ".join(f"« {t} » {agenda._jour_fr(d)}" for t, d in rappro[:3])
+        bouts.append(f"Callé à l'agenda : {items}.")
+    # 2) prochaines deadlines de l'agenda (calendriers Loopstr)
+    deadlines = [(d, s) for d, s, _c, dl in evs if dl][:3]
+    if deadlines:
+        items = " ; ".join(f"{s} {agenda._jour_fr(d)}" for d, s in deadlines)
+        bouts.append(f"Deadlines à l'agenda : {items}.")
+    return " ".join(bouts)
+
+
 def contenus_du_brief():
     """Phrase pour le brief matinal : UNIQUEMENT les retards / echeances proches,
     ou "" s'il n'y a rien a signaler. Croise le pipeline avec les deadlines."""
@@ -213,8 +292,11 @@ def changer_statut_contenu(titre: str, statut: str) -> str:
 @outil(
     nom="ou_j_en_suis",
     description="Fait le point sur ton pipeline de contenus : combien d'idees, de scripts, "
-                "de tournages, de montages, et ce qui est en retard ou a echeance proche. "
-                "Pour 'ou j'en suis', 'ou en sont mes videos', 'mon pipeline de contenu'.",
+                "de tournages, de montages, ce qui est en retard ou a echeance proche, et "
+                "croise avec ton agenda Google (creneaux et deadlines). Pour 'ou j'en suis', "
+                "'ou en sont mes videos', 'mon pipeline de contenu'.",
+    lent=True,
+    phrase_attente="Je fais le point sur tes contenus, un instant.",
 )
 def ou_j_en_suis() -> str:
     contenus = _charger()
@@ -240,6 +322,12 @@ def ou_j_en_suis() -> str:
         resume += f" Echeance proche : {items}."
     if not retards and not bientot:
         resume += " Rien en retard, tu es a jour."
+
+    # Croisement avec le Google Agenda (creneaux + deadlines). Degrade en silence
+    # si l'agenda n'est pas configure.
+    agenda_txt = _croisement_agenda(contenus)
+    if agenda_txt:
+        resume += " " + agenda_txt
     return resume
 
 
