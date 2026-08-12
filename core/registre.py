@@ -109,6 +109,7 @@ _N3 = frozenset({
     "call_with_message", "call_and_book",
     "book_appointment", "confirmer_reservation",
     "delete_event",
+    "eteindre_pc",
 })
 
 

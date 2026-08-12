@@ -1,4 +1,5 @@
-"""Outils systeme Windows : lancer une application, controler le media, le volume."""
+"""Outils systeme Windows : lancer une application, controler le media, le volume,
+et l'extinction propre du PC (N3, avec delai annulable)."""
 import ctypes
 import os
 import subprocess
@@ -6,6 +7,7 @@ import time
 import webbrowser
 from pathlib import Path
 
+from core.config import reglage
 from core.registre import outil
 
 # Codes des touches multimedia Windows
@@ -128,3 +130,64 @@ def regler_volume(sens: str, crans: int = 10) -> str:
         return "Sens invalide."
     _presser(_TOUCHES[sens], max(1, min(crans, 50)))
     return f"Volume {sens}."
+
+
+# -------------------------------------------------- extinction du PC (N3, physique)
+
+def _annonce_extinction(_args):
+    delai = int(reglage("assistant.delai_extinction", 30))
+    return (f"Je vais couper les lumieres puis eteindre le PC dans {delai} secondes, "
+            "annulable en disant « annule l'extinction »")
+
+
+@outil(
+    nom="eteindre_pc",
+    description="Eteint proprement l'ordinateur (extinction Windows). A n'utiliser QUE si "
+                "l'utilisateur demande explicitement d'eteindre le PC/l'ordinateur "
+                "('eteins le PC', 'arrete l'ordinateur', 'coupe le PC'). Coupe d'abord les "
+                "lumieres (scene d'extinction), puis programme l'arret avec un delai "
+                "annulable en disant « annule l'extinction ». N'est JAMAIS declenchable a "
+                "distance.",
+    confirmation=True,
+    annonce=_annonce_extinction,
+)
+def eteindre_pc() -> str:
+    """Scene d'extinction (lumieres) PUIS arret Windows programme, annulable (shutdown /a)."""
+    # 1) Scene d'extinction AVANT l'arret (coupe les lumieres, etc.).
+    try:
+        from tools import modes
+        modes.activer(reglage("assistant.scene_extinction", "off"))
+    except Exception:
+        pass
+    # 2) Arret programme, annulable pendant le delai.
+    delai = max(5, int(reglage("assistant.delai_extinction", 30)))
+    try:
+        r = subprocess.run(
+            ["shutdown", "/s", "/t", str(delai), "/c",
+             "Extinction demandee via Jarvis. Dis « annule l'extinction » pour l'arreter."],
+            capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if r.returncode == 0x45B:  # 1115 : un arret est deja programme
+            return "Une extinction est deja en cours. Dis « annule l'extinction » pour l'arreter."
+        if r.returncode != 0:
+            return f"Je n'ai pas pu programmer l'extinction ({(r.stderr or '').strip()[:120]})."
+    except Exception as e:
+        return f"Je n'ai pas pu programmer l'extinction ({e})."
+    return (f"Lumieres coupees. Le PC s'eteint dans {delai} secondes. "
+            "Dis « annule l'extinction » si tu changes d'avis.")
+
+
+@outil(
+    nom="annuler_extinction",
+    description="Annule une extinction du PC deja programmee (par 'eteins le PC'). Pour "
+                "'annule l'extinction', 'n'eteins pas', 'annule l'arret', 'finalement non'.",
+)
+def annuler_extinction() -> str:
+    """Annule l'arret programme (shutdown /a)."""
+    try:
+        r = subprocess.run(["shutdown", "/a"], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace")
+        if r.returncode == 0:
+            return "C'est annule, le PC reste allume."
+        return "Il n'y avait aucune extinction en cours."
+    except Exception as e:
+        return f"Je n'ai pas pu annuler l'extinction ({e})."

@@ -58,6 +58,8 @@ assistant:
   piece_nuit: "chambre"        # piece allumee au demarrage s'il fait nuit ("" pour desactiver)
   personnalite: "jarvis_sarcastique"   # jarvis_sarcastique | neutre | concis
                                # (modifiable a la voix : "passe en mode neutre")
+  scene_extinction: "off"      # scene lumieres jouee AVANT d'eteindre le PC ("eteins le PC")
+  delai_extinction: 30         # secondes avant l'arret (annulable : "annule l'extinction")
 
 obs:                           # OBS Studio 28+ -> Outils -> Parametres du serveur WebSocket
   host: "localhost"
