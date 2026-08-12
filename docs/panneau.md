@@ -38,7 +38,24 @@ gateway Hermes, Docker, et la **connexion MCP Hermes → Jarvis**. Bouton
 **Reconnecter MCP** = le remède du « parking » (`hermes mcp remove/add jarvis`).
 
 > Le tunnel est **lu**, jamais rouvert (sinon ngrok refuse « endpoint already
-> online »). Budget par fournisseur + tâches/crons Hermes : viendront avec la N9.
+> online »).
+
+### Budget par fournisseur (N9)
+
+- **Jarvis (mesuré)** : chaque appel Claude est instrumenté (`core/budget.py`) →
+  tokens (in/out, cache compris) + **coût estimé** via la table de prix
+  `budget.prix` (config). Résumé **du jour** et **du mois**, persistant dans
+  `budget.json` (non versionné). Redémarre Jarvis pour activer le comptage.
+- **Twilio** : le compteur mensuel existant (`logs/calls/compteur.json`).
+- **Hermes** : tokens (jour / 30 j) lus via `hermes insights` — Hermes tient sa
+  propre comptabilité, Jarvis ne la double pas.
+
+### Activité Hermes (N9)
+
+Crons planifiés (nom, planning, prochaine exécution), derniers runs de cron, et
+tâches kanban en cours — via le CLI `hermes` (`cron list` / `cron runs` /
+`kanban list`). *(Les commandes sont lancées en UTF-8 : la sortie d'Hermes
+contient cadres et emoji.)*
 
 ## 3. Page Permissions (niveaux N1/N2/N3 — N8)
 

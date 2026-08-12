@@ -89,7 +89,13 @@
         <button class="act" onclick="reconnecter()">Reconnecter MCP (remède parking)</button>
       </div>
       <div id="etat-msg" class="msg"></div>
-      <small class="note">Budget par fournisseur et tâches/crons Hermes : arriveront avec la N9.</small>
+    </div>
+    <div class="card"><h2>Budget par fournisseur</h2>
+      <div id="budget"></div>
+      <small class="note">Jarvis : mesuré (tokens + coût estimé, tarifs config <span class="mono">budget.prix</span>). Hermes : tokens via <span class="mono">hermes insights</span>.</small>
+    </div>
+    <div class="card"><h2>Activité Hermes</h2>
+      <div id="activite" class="muted">Chargement…</div>
     </div>
   </section>
 
@@ -118,8 +124,10 @@ const bYes=(t)=>`<span class="badge on">${t}</span>`, bNo=(t)=>`<span class="bad
 $$('nav button').forEach(b=>b.onclick=()=>{
   $$('nav button').forEach(x=>x.classList.toggle('on',x===b));
   $$('.tab').forEach(t=>t.classList.toggle('on',t.id===b.dataset.t));
-  if(b.dataset.t==='etat')chargerEtat(); if(b.dataset.t==='perms')chargerPerms();
+  if(b.dataset.t==='etat'){chargerEtat();chargerBudget();chargerActivite();} if(b.dataset.t==='perms')chargerPerms();
 });
+const fmt=n=>(n||0).toLocaleString('fr-FR');
+const eur=n=>'$'+(n||0).toFixed(2);
 
 /* ---------- MODELES ---------- */
 async function chargerModeles(){
@@ -226,6 +234,38 @@ async function reconnecter(){
   const r=await post('/api/panneau/reconnecter-mcp',{});
   $('#etat-msg').innerHTML=`<span style="color:var(--${r.ok?'ok':'ko'})">${r.message}</span>`;
   setTimeout(chargerEtat,600);
+}
+async function chargerBudget(){
+  const d=await api('/api/panneau/budget');
+  const lignes=(obj,periode)=>Object.entries(obj||{}).map(([f,v])=>
+    `<tr><td>${f}</td><td class="muted">${periode}</td><td class="mono">${fmt(v.tin)}→${fmt(v.tout)}</td>
+     <td>${v.appels} appels</td><td><b>${eur(v.cout)}</b></td></tr>`).join('');
+  let html='<table><thead><tr><th>Fournisseur</th><th>Période</th><th>Tokens (in→out)</th><th></th><th>Coût est.</th></tr></thead><tbody>';
+  html+=lignes(d.jarvis.jour,'aujourd’hui')||'';
+  html+=lignes(d.jarvis.mois,'ce mois')||'';
+  if(d.twilio) html+=`<tr><td>Twilio (appels)</td><td class="muted">ce mois</td><td class="mono">${d.twilio.appels||0} appels / ${d.twilio.minutes||0} min</td><td></td><td><b>${eur(d.twilio.cout)}</b></td></tr>`;
+  html+='<tr id="budget-hermes"><td>Hermes</td><td class="muted">—</td><td class="mono">…</td><td></td><td>—</td></tr>';
+  html+='</tbody></table>';
+  if(!Object.keys(d.jarvis.jour||{}).length && !Object.keys(d.jarvis.mois||{}).length && !d.twilio)
+    html='<span class="muted">Aucune conso enregistrée pour l’instant (redémarre Jarvis pour activer le comptage).</span>'+html;
+  $('#budget').innerHTML=html;
+}
+async function chargerActivite(){
+  const d=await api('/api/panneau/hermes-activite');
+  // complète la ligne budget Hermes (tokens jour/mois)
+  const ij=d.insights_jour, im=d.insights_mois;
+  const rowH=$('#budget-hermes');
+  if(rowH && (ij||im)) rowH.innerHTML=`<td>Hermes (opus)</td><td class="muted">jour / 30j</td>
+    <td class="mono">${fmt(ij&&ij.tokens)} / ${fmt(im&&im.tokens)} tokens</td>
+    <td>${im?im.sessions+' sessions':''}</td><td class="muted">voir hermes insights</td>`;
+  const crons=(d.crons||[]).map(c=>`<div style="padding:3px 0">🗓 <b>${c.nom}</b>
+    <span class="mono muted">${c.planning||''}</span> → prochain : <span class="mono">${c.prochain||'?'}</span></div>`).join('')
+    || '<span class="muted">Aucun cron.</span>';
+  const bloc=(t,txt)=>`<div style="margin-top:10px"><div class="muted" style="font-size:12px">${t}</div>`
+    +(txt?`<pre style="white-space:pre-wrap;background:var(--card2);border:1px solid var(--bord);border-radius:8px;padding:8px;overflow-x:auto;font-size:12px;margin:4px 0">${txt.replace(/</g,'&lt;')}</pre>`:'<span class="muted">—</span>')+'</div>';
+  $('#activite').innerHTML=`<div><b>Crons planifiés</b></div>${crons}`
+    + bloc('Derniers runs de cron', d.runs_texte)
+    + bloc('Tâches (kanban) en cours', d.taches_texte);
 }
 
 /* ---------- PERMISSIONS ---------- */

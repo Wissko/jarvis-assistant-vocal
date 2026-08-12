@@ -73,7 +73,7 @@ class ClaudeProvider(ProviderLLM):
 
     def repondre(self, systeme, historique, outils):
         # La reponse native Anthropic a deja la bonne forme (.stop_reason/.content).
-        return self.client.messages.create(
+        rep = self.client.messages.create(
             model=self.modele,
             max_tokens=1024,
             system=[{"type": "text", "text": systeme,
@@ -81,6 +81,20 @@ class ClaudeProvider(ProviderLLM):
             messages=historique,
             tools=outils,
         )
+        # Comptabilite (N9) : tokens + cout estime, par jour, cote Jarvis.
+        try:
+            u = getattr(rep, "usage", None)
+            if u is not None:
+                from core import budget
+                budget.enregistrer(
+                    "Claude (Jarvis)", self.modele,
+                    getattr(u, "input_tokens", 0) or 0,
+                    getattr(u, "output_tokens", 0) or 0,
+                    cache_read=getattr(u, "cache_read_input_tokens", 0) or 0,
+                    cache_creation=getattr(u, "cache_creation_input_tokens", 0) or 0)
+        except Exception:
+            pass
+        return rep
 
 
 # --------------------------------------------------------------- Ollama (local)

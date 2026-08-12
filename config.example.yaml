@@ -203,3 +203,9 @@ suivi:                         # suivi de contenus (pipeline video) ; voir docs/
 securite:                      # niveaux de permission (N8) ; voir docs/panneau.md
   toujours: []                 # outils N2 memorises "toujours autoriser" (revocables au panneau)
                                # rempli a la voix ("oui, toujours") ; un N3 n'y entre JAMAIS
+
+budget:                        # suivi de conso LLM (N9) ; page Etat du panneau
+  prix:                        # $/million de tokens (entree, sortie) ; cle = sous-chaine du modele
+    haiku: [1.0, 5.0]          # tarifs API Anthropic (a ajuster si besoin)
+    sonnet: [3.0, 15.0]
+    opus: [5.0, 25.0]

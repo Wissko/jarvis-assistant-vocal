@@ -328,7 +328,7 @@ def _hermes_definir_modele(modele):
                 "Change le modele cote Hermes (hermes config set model.default ...)."}
     try:
         p = subprocess.run([exe, "config", "set", "model.default", modele],
-                           capture_output=True, text=True, timeout=30)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
         if p.returncode != 0:
             return {"ok": False, "message": (p.stderr or p.stdout or "echec").strip()[:200]}
         return {"ok": True, "message": f"Modele d'Hermes -> {modele}. Redemarre Hermes pour l'appliquer."}
@@ -396,7 +396,7 @@ def _hermes_mcp_connecte():
     if not exe:
         return None
     try:
-        p = subprocess.run([exe, "mcp", "list"], capture_output=True, text=True, timeout=20)
+        p = subprocess.run([exe, "mcp", "list"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20)
         sortie = (p.stdout or "") + (p.stderr or "")
         bas = sortie.lower()
         if "jarvis" not in bas:
@@ -436,6 +436,101 @@ def _etat():
     return {"chaine": chaine}
 
 
+# ==================================================================== budget (N9)
+
+def _twilio_compteur():
+    """Compteur mensuel Twilio (logs/calls/compteur.json), ou None."""
+    try:
+        dossier = reglage("appels.dossier", "logs/calls")
+        p = Path(dossier)
+        p = p if p.is_absolute() else (_RACINE / p)
+        f = p / "compteur.json"
+        if not f.exists():
+            return None
+        return json.loads(f.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _budget():
+    """Budget cote Jarvis (jour/mois) + compteur Twilio. Rapide (fichiers locaux)."""
+    try:
+        from core import budget
+        jarvis = budget.resume()
+    except Exception:
+        LOG.exception("budget")
+        jarvis = {"jour": {}, "mois": {}}
+    return {"jarvis": jarvis, "twilio": _twilio_compteur()}
+
+
+def _hermes_insights(jours):
+    """Parse `hermes insights --days N` : sessions, messages, total tokens."""
+    exe = shutil.which("hermes")
+    if not exe:
+        return None
+    try:
+        import re
+        p = subprocess.run([exe, "insights", "--days", str(jours)],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90)
+        txt = (p.stdout or "") + (p.stderr or "")
+
+        def num(motif):
+            m = re.search(motif, txt)
+            return int(m.group(1).replace(",", "")) if m else 0
+        return {"sessions": num(r"Sessions:\s+([\d,]+)"),
+                "messages": num(r"Messages:\s+([\d,]+)"),
+                "tokens": num(r"Total tokens:\s+([\d,]+)")}
+    except Exception:
+        LOG.exception("hermes insights")
+        return None
+
+
+def _hermes_crons():
+    """Liste des crons Hermes (nom, planning, prochaine execution)."""
+    exe = shutil.which("hermes")
+    if not exe:
+        return []
+    try:
+        p = subprocess.run([exe, "cron", "list"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=25)
+        crons, cur = [], None
+        for ligne in (p.stdout or "").splitlines():
+            s = ligne.strip()
+            if s.startswith("Name:"):
+                cur = {"nom": s.split(":", 1)[1].strip()}
+                crons.append(cur)
+            elif cur and s.startswith("Schedule:"):
+                cur["planning"] = s.split(":", 1)[1].strip()
+            elif cur and s.startswith("Next run:"):
+                cur["prochain"] = s.split(":", 1)[1].strip()
+        return crons
+    except Exception:
+        return []
+
+
+def _hermes_texte(args, timeout=25, lignes=12):
+    """Sortie brute (tronquee) d'une commande hermes, pour l'affichage."""
+    exe = shutil.which("hermes")
+    if not exe:
+        return ""
+    try:
+        p = subprocess.run([exe, *args], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
+        txt = (p.stdout or "").strip()
+        return "\n".join(txt.splitlines()[:lignes])
+    except Exception:
+        return ""
+
+
+def _hermes_activite():
+    """Crons + derniers runs + taches en cours + tokens (jour/mois). Lent (CLI Hermes)."""
+    return {
+        "crons": _hermes_crons(),
+        "runs_texte": _hermes_texte(["cron", "runs", "--limit", "5"]),
+        "taches_texte": _hermes_texte(["kanban", "list"]),
+        "insights_jour": _hermes_insights(1),
+        "insights_mois": _hermes_insights(30),
+    }
+
+
 def _reconnecter_mcp():
     """Remede du parking : hermes mcp remove/add jarvis (voir status-hermes.ps1)."""
     exe = shutil.which("hermes")
@@ -443,9 +538,9 @@ def _reconnecter_mcp():
         return {"ok": False, "message": "CLI 'hermes' introuvable dans le PATH du serveur."}
     url = "http://127.0.0.1:8765/mcp"
     try:
-        subprocess.run([exe, "mcp", "remove", "jarvis"], capture_output=True, text=True, timeout=30)
+        subprocess.run([exe, "mcp", "remove", "jarvis"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
         p = subprocess.run([exe, "mcp", "add", "jarvis", "--url", url],
-                           input="n\ny\n", capture_output=True, text=True, timeout=40)
+                           input="n\ny\n", capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=40)
         ok = p.returncode == 0
         return {"ok": ok, "message": "jarvis reconnecte." if ok
                 else (p.stderr or p.stdout or "echec").strip()[:200]}
@@ -539,6 +634,14 @@ def monter_routes(app):
     @app.get("/api/panneau/etat")
     def api_etat(request: Request):
         return garde(request) or _etat()
+
+    @app.get("/api/panneau/budget")
+    def api_budget(request: Request):
+        return garde(request) or _budget()
+
+    @app.get("/api/panneau/hermes-activite")
+    def api_hermes_activite(request: Request):
+        return garde(request) or _hermes_activite()
 
     @app.get("/api/panneau/permissions")
     def api_permissions(request: Request):
