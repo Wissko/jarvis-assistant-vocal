@@ -13,6 +13,13 @@ parle naturellement : il raisonne avec un LLM, utilise une boîte à outils exte
 une ligne de config : **cloud** (Claude + ElevenLabs) ou **100 % local hors ligne**
 (Ollama + Piper).
 
+**🧠 Jarvis + Hermes.** Pour la réflexion de fond et la recherche, Jarvis **délègue à
+[Hermes](docs/hermes.md)**, un agent délibératif qui tourne **en local** (conteneur
+Docker). La doctrine est nette : **Hermes orchestre et pense ; Jarvis détient les clés
+et le corps** — c'est toujours Jarvis qui exécute les actions, jamais Hermes, et
+**aucun identifiant ne vit dans l'environnement d'Hermes** (il lit le Vault et les
+outils sûrs, écrit seulement des brouillons).
+
 > Projet perso partagé tel quel. Cible **Windows 11**, nécessite un micro et (en mode
 > cloud) une clé API Anthropic. La plupart des intégrations sont **optionnelles** et se
 > désactivent proprement si non configurées.
@@ -37,6 +44,12 @@ une ligne de config : **cloud** (Claude + ElevenLabs) ou **100 % local hors lign
 - 🏠 **Présence** — ping ton téléphone, déclenche des scènes quand tu pars/reviens
 - 🌤️ **Utilitaires** — météo, minuteurs, heure/date
 - 🔌 **Serveur MCP** — expose les outils domotique/PC à tout client MCP (Claude Desktop, Hermes…)
+- 🎬 **Hub de contenu** — vault d'inspirations Insta/TikTok (télécharge, transcrit, indexe), idées & scripts générés, ingestion YouTube ([docs/hub_contenu.md](docs/hub_contenu.md))
+- 🗂️ **Suivi de contenus** — pipeline vidéo *idée → script → tournage → montage → publié*, croisé avec ton agenda ; « où j'en suis ? » ([docs/suivi_contenu.md](docs/suivi_contenu.md))
+- 🤝 **Délégation à Hermes** — confie la réflexion / recherche de fond à un agent délibératif **local** (doctrine : Jarvis tient les clés & le corps, Hermes pense) ([docs/hermes.md](docs/hermes.md))
+- 🧭 **Panneau web local** (`/panneau`) — modèles (LLM Ollama + Whisper, reco selon la VRAM), état de la chaîne, permissions — **accessible en local uniquement** ([docs/panneau.md](docs/panneau.md))
+- 🔐 **Sécurité graduée** — niveaux **N1/N2/N3** par outil, « toujours autoriser » révocable, budget LLM par fournisseur
+- ⏻ **Extinction / réveil du PC** — extinction propre à la voix (confirmation N3, délai annulable) ; réveil par prise connectée ou Wake-on-LAN ([docs/wol.md](docs/wol.md))
 
 ## 🎬 Démo
 
@@ -57,9 +70,15 @@ flowchart LR
     TOOLS -.-> NET[📅 Agenda / 📧 Mail / 💬 Discord / 📸 Instagram]
     TOOLS -.-> CDP[🌐 Chrome via CDP]
     TOOLS -.-> TW[📞 Appels Twilio]
+    TOOLS -.->|délègue la réflexion| HERMES[🧠 Hermes<br/>agent délibératif local]
     TOOLS -.-> MCP[[🔌 Serveur MCP]]
-    MCP -.-> EXT[Hermes Agent / Claude Desktop]
+    HERMES -.->|lit les outils sûrs| MCP
+    MCP -.-> EXT[Claude Desktop / autres clients]
+    PANEL[🧭 Panneau web local<br/>modèles · état · permissions] -.-> TOOLS
 ```
+
+> **Jarvis tient les clés & le corps** (il exécute) ; **Hermes pense** (réflexion, recherche,
+> analyse du Vault). Hermes ne voit que les **outils sûrs** exposés par le serveur MCP de Jarvis.
 
 ## ☁️ Cloud vs 🏠 Local
 
@@ -121,7 +140,10 @@ Aucun outil n'est imposé : prends celui qui te convient.
 ## ⚙️ Configuration
 
 Tout est dans un unique `config.yaml` **non versionné** (copié depuis
-`config.example.yaml`, qui documente chaque clé). Guides par intégration :
+`config.example.yaml`, qui documente chaque clé). Nouvelles sections côté config :
+`hermes` (délégation), `integrations`/`hub` (Vault + génération), `suivi` (pipeline
+de contenus), `securite.toujours` (autorisations N2 mémorisées), `budget.prix`
+(coût LLM), `serveur`/`pont_iphone`. Guides par intégration :
 
 | Intégration | Guide |
 |---|---|
@@ -137,6 +159,11 @@ Tout est dans un unique `config.yaml` **non versionné** (copié depuis
 | Instagram | [docs/instagram.md](docs/instagram.md) |
 | Serveur MCP | [docs/mcp.md](docs/mcp.md) |
 | Pont iPhone (Raccourcis) | [docs/iphone.md](docs/iphone.md) |
+| **Hermes (délégation, cloisonnement)** | [docs/hermes.md](docs/hermes.md) |
+| **Hub de contenu (Vault + génération)** | [docs/hub_contenu.md](docs/hub_contenu.md) |
+| **Suivi de contenus** | [docs/suivi_contenu.md](docs/suivi_contenu.md) |
+| **Panneau web (modèles · état · permissions)** | [docs/panneau.md](docs/panneau.md) |
+| **Extinction / Wake-on-LAN** | [docs/wol.md](docs/wol.md) |
 | **Latence perçue (UX)** | [docs/latency.md](docs/latency.md) |
 
 ## 🛡️ Éthique & Sécurité
@@ -149,11 +176,20 @@ La confiance est intégrée, pas rajoutée :
 - **Domaines protégés** (banque, impôts, santé) sur ton vrai navigateur = **lecture seule**.
 - **Secrets & données perso jamais versionnés** (`config.yaml`, mémoire, logs, transcriptions d'appels, tokens OAuth — tous gitignorés).
 - Au téléphone, Jarvis ne confirme que ce que tu as validé **avant** l'appel.
+- **Niveaux de permission N1/N2/N3** : chaque outil a un niveau — **N1** sûr (auto, local + iPhone), **N2** sensible (confirmation ; « toujours autoriser » révocable), **N3** critique (confirmation à chaque fois, jamais mémorisable, **jamais à distance**). Extinction du PC, mails, appels, réservations = N3.
+- **Pont iPhone** : à distance, seuls les outils **sûrs (N1)** s'exécutent ; toute action sensible est refusée (« à faire à la voix à la maison »). Un token volé ne peut qu'allumer/éteindre des lumières.
+- **Cloisonnement Hermes** : Hermes lit le Vault et les outils **en lecture seule**, écrit uniquement des brouillons — **aucun credential** dans son environnement.
 
 ## 🗺️ Roadmap
 
+- [x] **Délégation à Hermes** (agent délibératif local) + gateway Telegram (whitelist stricte)
+- [x] **Hub de contenu** : Vault d'inspirations + génération d'idées/scripts + ingestion YouTube
+- [x] **Suivi de contenus** : pipeline idée → publié, croisé avec l'agenda
+- [x] **Panneau web local** : modèles · état de la chaîne · permissions **N1/N2/N3** · budget LLM
+- [x] **Extinction propre du PC** (N3, délai annulable) — réveil par prise connectée / Wake-on-LAN
 - [ ] Contrôle des lampes vidéo Godox (aujourd'hui Hue seulement)
 - [x] Notes / idées (+ pont iPhone via Raccourcis) — rappels programmés à venir
+- [ ] Pilotage direct de la prise connectée par Jarvis (`rallumer_pc` avec garde-fou ping)
 - [ ] TTS en streaming phrase par phrase (voir [docs/latency.md](docs/latency.md))
 - [ ] Boucle navigateur en 100 % local : la vision de `qwen3.5` lit déjà le texte des boutons (testé) — reste à valider le pilotage complet
 - [ ] Rafraîchissement auto des tokens Instagram entre redémarrages (partiel aujourd'hui)
