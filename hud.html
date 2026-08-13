@@ -195,7 +195,21 @@
       <span class="val" id="vEcoute">—</span></div>
     <div class="champ"><span class="cle">Niveau</span>
       <span class="jauge"><i id="vJauge"></i></span></div>
+    <div class="champ"><span class="cle">Routage</span>
+      <span class="val" id="vRoutage">—</span></div>
+    <div class="champ"><span class="cle">Budget jour</span>
+      <span class="val" id="vBudget">—</span></div>
+    <div class="champ"><span class="cle">Hermes</span>
+      <span class="val" id="vHermes">—</span></div>
   </div>
+
+  <div id="bandeauConfirm" style="display:none;position:fixed;top:64px;left:50%;
+    transform:translateX(-50%);padding:8px 18px;border-radius:10px;z-index:9;
+    background:rgba(245,185,66,.14);border:1px solid rgba(245,185,66,.5);
+    color:#f5b942;font-size:14px;letter-spacing:.05em">⏳ En attente de confirmation…</div>
+  <div id="badgeMuet" style="display:none;position:fixed;top:16px;right:16px;z-index:9;
+    padding:5px 12px;border-radius:999px;background:rgba(255,107,107,.16);
+    border:1px solid rgba(255,107,107,.5);color:#ff8a8a;font-size:12px">🔇 Micro coupé</div>
 
   <div class="horloge">
     <div class="heure" id="vHeure">--:--:--</div>
@@ -221,6 +235,10 @@ const S = {
   modele: "—",
   stt: "—",
   enligne: false,
+  routage: "—",
+  budget: null,
+  hermes: null,
+  muet: false,
 };
 
 const LIBELLES = {
@@ -228,6 +246,7 @@ const LIBELLES = {
   ecoute: "ECOUTE",
   reflexion: "REFLEXION",
   parole: "PAROLE",
+  muet: "MICRO COUPE",
 };
 
 // Couleur dominante par etat : cyan sourd, cyan vif, bleu-violet, ambre.
@@ -236,6 +255,7 @@ const COULEURS = {
   ecoute:    { r: 46,  g: 224, b: 255 },
   reflexion: { r: 138, g: 108, b: 255 },
   parole:    { r: 255, g: 176, b: 62  },
+  muet:      { r: 255, g: 107, b: 107 },
 };
 
 let couleur = Object.assign({}, COULEURS.veille);  // couleur affichee, lissee
@@ -408,11 +428,32 @@ function dessiner(t) {
 
 // ------------------------------------------------------------- interface
 
+function fmtBudget(b) {
+  if (!b) return "—";
+  let s = (Number(b.cout) || 0).toFixed(2) + "$";
+  if (b.plafond) s += " / " + b.plafond + "$ (" + Math.round((b.pct || 0) * 100) + "%)";
+  return s;
+}
+function fmtHermes(h) {
+  if (!h) return "—";
+  const p = [];
+  if (h.taches > 0) p.push(h.taches + " tache" + (h.taches > 1 ? "s" : "") + " en cours");
+  if (h.tokens != null) p.push(Number(h.tokens).toLocaleString("fr-FR") + " tok/30j");
+  return p.length ? p.join(" · ") : "au repos";
+}
+
 function majReleve() {
   $("vModele").textContent = S.modele || "—";
   $("vEcoute").textContent = S.stt || "—";
   $("vSysteme").textContent = S.enligne ? "En ligne" : "Hors ligne";
   $("pastille").classList.toggle("enligne", S.enligne);
+  $("vRoutage").textContent = S.routage || "—";
+  $("vBudget").textContent = fmtBudget(S.budget);
+  $("vHermes").textContent = fmtHermes(S.hermes);
+  $("badgeMuet").style.display = S.muet ? "block" : "none";
+  // budget proche/au plafond : la ligne vire à l'ambre puis au rouge.
+  const pct = S.budget && S.budget.plafond ? (S.budget.pct || 0) : 0;
+  $("vBudget").style.color = pct >= 1 ? "#ff6b6b" : (pct >= 0.8 ? "#f5b942" : "");
 
   const et = LIBELLES[S.etat] || S.etat.toUpperCase();
   const eti = $("etiquetteEtat");
@@ -485,6 +526,25 @@ function appliquer(ev) {
       ajouterLigne(
         `⚙ <b>${echap(ev.nom)}</b>${ev.detail ? " · " + echap(ev.detail) : ""}`,
         "outil");
+      break;
+    case "routage":
+      S.routage = ev.v;
+      majReleve();
+      break;
+    case "budget":
+      S.budget = { cout: ev.cout, plafond: ev.plafond, pct: ev.pct };
+      majReleve();
+      break;
+    case "hermes":
+      S.hermes = { taches: ev.taches, tokens: ev.tokens };
+      majReleve();
+      break;
+    case "confirmation":
+      $("bandeauConfirm").style.display = ev.v ? "block" : "none";
+      break;
+    case "micro":
+      S.muet = ev.v;
+      majReleve();
       break;
   }
 }

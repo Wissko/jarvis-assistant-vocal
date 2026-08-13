@@ -27,6 +27,47 @@ except Exception:
     pass
 import requests
 
+# --- suivi HUD : tâches Hermes en cours + part Hermes (tokens) ---
+_EN_COURS = 0
+_LOCK = threading.Lock()
+_TOKENS = None
+
+
+def taches_en_cours() -> int:
+    return _EN_COURS
+
+
+def _pousser_hud():
+    try:
+        import hud
+        hud.hermes(_EN_COURS, _TOKENS)
+    except Exception:
+        pass
+
+
+def _maj_tokens():
+    global _TOKENS
+    try:
+        import re
+        import shutil
+        import subprocess
+        exe = shutil.which("hermes")
+        if not exe:
+            return
+        p = subprocess.run([exe, "insights", "--days", "30"], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=60)
+        m = re.search(r"Total tokens:\s+([\d,]+)", (p.stdout or "") + (p.stderr or ""))
+        if m:
+            _TOKENS = int(m.group(1).replace(",", ""))
+    except Exception:
+        pass
+
+
+def rafraichir_hud():
+    """Rafraîchit la part Hermes (tokens) puis pousse au HUD. Appelé au démarrage."""
+    _maj_tokens()
+    _pousser_hud()
+
 
 def _cle_api() -> str:
     """Cle API du serveur Hermes : config.yaml hermes.api_key, sinon fichier."""
@@ -108,6 +149,10 @@ def deleguer_en_fond(tache: str, intro: str = "Hermes a termine. ",
     Renvoie tout de suite l'accuse pour Jarvis. Utilise par deleguer_a_hermes ET par
     les outils de contenu (generer_idees, generer_script)."""
     def worker():
+        global _EN_COURS
+        with _LOCK:
+            _EN_COURS += 1
+        _pousser_hud()                            # HUD : une tache Hermes de plus
         try:
             resultat = _appeler_hermes(tache)
             _journaliser(tache, resultat)
@@ -122,6 +167,11 @@ def deleguer_en_fond(tache: str, intro: str = "Hermes a termine. ",
         except Exception as e:
             voix.parler("La delegation a Hermes a echoue. "
                         + confidentialite.filtrer(str(e), 120))
+        finally:
+            with _LOCK:
+                _EN_COURS -= 1
+            _maj_tokens()                         # conso Hermes mise a jour apres la tache
+            _pousser_hud()
     threading.Thread(target=worker, daemon=True, name=nom_thread).start()
     return "Je confie ca a Hermes. Je te previens des que c'est pret."
 

@@ -50,6 +50,10 @@ _ETAT = {
     "niveau": 0.0,
     "modele": "",
     "stt": "",
+    "routage": "",
+    "budget": None,
+    "hermes": None,
+    "micro": False,
 }
 
 # Une file par onglet connecte. Le verrou protege l'ensemble.
@@ -121,6 +125,35 @@ def config(modele, stt):
     _diffuser({"t": "config", "modele": modele, "stt": stt})
 
 
+def routage(mode):
+    """Mode de routage courant (local / hybride / qualite)."""
+    _ETAT["routage"] = mode
+    _diffuser({"t": "routage", "v": mode})
+
+
+def budget(cout_jour, plafond=None, pct=0.0):
+    """Budget consomme du jour (cout $, plafond $, fraction 0..1)."""
+    _ETAT["budget"] = {"cout": cout_jour, "plafond": plafond, "pct": pct}
+    _diffuser({"t": "budget", "cout": cout_jour, "plafond": plafond, "pct": pct})
+
+
+def hermes(taches, tokens=None):
+    """Activite Hermes : nb de taches en cours + tokens consommes (part Hermes)."""
+    _ETAT["hermes"] = {"taches": taches, "tokens": tokens}
+    _diffuser({"t": "hermes", "taches": taches, "tokens": tokens})
+
+
+def confirmation(actif):
+    """Indicateur d'attente d'une confirmation vocale (bandeau)."""
+    _diffuser({"t": "confirmation", "v": bool(actif)})
+
+
+def micro(muet):
+    """Micro coupe (wake word en pause) ou non."""
+    _ETAT["micro"] = bool(muet)
+    _diffuser({"t": "micro", "v": bool(muet)})
+
+
 # ---------------------------------------------------------------- serveur
 
 
@@ -170,6 +203,17 @@ class _Poignee(BaseHTTPRequestHandler):
             self._pousser({"t": "niveau", "v": _ETAT["niveau"]})
             self._pousser({"t": "config", "modele": _ETAT["modele"],
                            "stt": _ETAT["stt"]})
+            if _ETAT.get("routage"):
+                self._pousser({"t": "routage", "v": _ETAT["routage"]})
+            if _ETAT.get("budget"):
+                b = _ETAT["budget"]
+                self._pousser({"t": "budget", "cout": b["cout"],
+                               "plafond": b["plafond"], "pct": b["pct"]})
+            if _ETAT.get("hermes"):
+                h = _ETAT["hermes"]
+                self._pousser({"t": "hermes", "taches": h["taches"],
+                               "tokens": h["tokens"]})
+            self._pousser({"t": "micro", "v": _ETAT.get("micro", False)})
             for evenement in list(_HISTORIQUE):
                 self._pousser(evenement)
 
@@ -239,6 +283,9 @@ def _scenario():
     import math
 
     config("qwen3.5:4b", "whisper medium")
+    routage("hybride")
+    budget(0.27, 3.0, 0.09)
+    hermes(0, 48213)
 
     tours = [
         ("allume la lumiere de la chambre",

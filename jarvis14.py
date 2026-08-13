@@ -187,6 +187,23 @@ def _niv_hud(bloc):
     return min(1.0, niveau(bloc) / 0.2)
 
 
+def _hud_status():
+    """Pousse au HUD le mode de routage et le budget du jour (part Hermes gérée par
+    tools.deleguer_a_hermes qui pousse hud.hermes)."""
+    try:
+        from core.routage import mode_actuel
+        _hud("routage", mode_actuel())
+    except Exception:
+        pass
+    try:
+        from core import budget
+        e = budget.etat()
+        _hud("budget", round(e["total_jour"], 2), e["plafond_jour"],
+             round(e["pct_jour"], 3))
+    except Exception:
+        pass
+
+
 # ---------------------------------------------------------------- audio
 
 
@@ -898,7 +915,9 @@ def traiter(audio, whisper, historique, flux, reveil):
     texte, interrompu, relancer = repondre_en_ecoutant(historique, flux, reveil, whisper)
 
     if texte == SENTINEL_CONFIRM:
+        _hud("confirmation", True)
         texte, relancer = _confirmer(interrompu, relancer, whisper, historique, flux)
+        _hud("confirmation", False)
     elif not texte:
         texte = "C'est fait."
         if not interrompu:
@@ -907,6 +926,7 @@ def traiter(audio, whisper, historique, flux, reveil):
 
     _hud("dire_jarvis", texte)
     _afficher_overlay(texte)
+    _hud_status()
     print(f"  Jarvis : {texte}\n")
     _tronquer(historique)
     return relancer
@@ -1025,6 +1045,12 @@ def main():
 
     _hud("demarrer")
     _hud("config", _fournisseur.nom, f"whisper {MODELE_WHISPER}")
+    _hud_status()
+    try:                                   # part Hermes (tokens) au HUD, en fond
+        from tools import deleguer_a_hermes as _dh
+        threading.Thread(target=_dh.rafraichir_hud, daemon=True).start()
+    except Exception:
+        pass
 
     faits = memoire.charger()
     if faits:
