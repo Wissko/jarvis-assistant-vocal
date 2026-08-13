@@ -101,12 +101,6 @@ def _journaliser(tache: str, resultat: str) -> None:
         pass
 
 
-def _annonce(args):
-    tache = (args.get("tache") or "").strip()
-    court = tache if len(tache) <= 120 else tache[:120] + "..."
-    return f"Je vais deleguer a Hermes : {court}."
-
-
 def deleguer_en_fond(tache: str, intro: str = "Hermes a termine. ",
                      nom_thread: str = "deleguer-hermes") -> str:
     """Reutilisable : delegue une tache a Hermes en tache de fond, journalise le
@@ -124,19 +118,19 @@ def deleguer_en_fond(tache: str, intro: str = "Hermes a termine. ",
             voix.parler("La delegation a Hermes a echoue. "
                         + confidentialite.filtrer(str(e), 120))
     threading.Thread(target=worker, daemon=True, name=nom_thread).start()
-    return "Je delegue ca a Hermes. Je te previens des que c'est pret."
+    return "Je confie ca a Hermes. Je te previens des que c'est pret."
 
 
 @outil(
     nom="deleguer_a_hermes",
     description=(
-        "Delegue une tache de REFLEXION ou de RECHERCHE DE FOND a Hermes (agent "
-        "delibératif tournant en local) et fait annoncer le resultat a voix haute "
-        "quand c'est pret. A utiliser quand l'utilisateur dit 'delegue a Hermes...', "
-        "'fais une recherche de fond sur...', 'lance Hermes sur...', ou pour une "
-        "tache longue/analytique qui merite de la reflexion. Jarvis repond tout de "
-        "suite puis previent vocalement a la fin. NE PAS utiliser pour une question "
-        "simple a laquelle tu peux repondre directement."
+        "Confie une tache de REFLEXION, d'ANALYSE ou de RECHERCHE DE FOND a Hermes "
+        "(agent delibératif local). A appeler DE TOI-MEME, sans demander, des que la "
+        "demande est une tache de fond : analyse, veille, recherche longue, synthese, "
+        "reflexion approfondie — et bien sur si l'utilisateur dit 'delegue a Hermes', "
+        "'fais une recherche de fond', 'lance Hermes sur...'. Jarvis annonce « je "
+        "confie ca a Hermes » et previent vocalement quand c'est pret. NE PAS utiliser "
+        "pour une question simple/reflexe a laquelle tu peux repondre directement."
     ),
     parametres={
         "type": "object",
@@ -148,8 +142,6 @@ def deleguer_en_fond(tache: str, intro: str = "Hermes a termine. ",
         },
         "required": ["tache"],
     },
-    confirmation=True,
-    annonce=_annonce,
 )
 def deleguer_a_hermes(tache: str) -> str:
     """Envoie la tache a Hermes en tache de fond ; previent a voix haute a la fin."""
