@@ -11,6 +11,10 @@ Ouvre-le dans un navigateur **sur la machine de Jarvis** :
 http://localhost:8790/panneau
 ```
 
+**À la voix** : « **ouvre le tableau de configuration** » (ou « tableau de bord »,
+« ouvre le panneau ») → l'outil `ouvrir_panneau` (N1, local, non exposé au MCP)
+lance le navigateur sur cette page. Si le serveur n'est pas démarré, Jarvis le dit.
+
 **Doctrine** : c'est du **Jarvis pur** (config locale). Il *affiche* l'état
 d'Hermes mais ne lui donne **aucun droit nouveau**. Il n'écrit que ce qui est sans
 danger (choix de modèle, modèle d'Hermes) — **jamais une règle de sécurité**.

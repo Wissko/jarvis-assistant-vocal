@@ -126,13 +126,46 @@ async def _devices(login):
     return await AlexaAPI.get_devices(login) or []
 
 
-def _choisir(devices, cible):
+class _Appareil:
+    """Enveloppe le dict de get_devices en OBJET attendu par AlexaAPI.
+
+    alexapy accède à ._device_type / .device_serial_number / ._locale / etc. sur
+    l'appareil (Home Assistant lui passe sa propre classe). get_devices() ne renvoie
+    que des dicts → sans cette enveloppe : « 'dict' object has no attribute _locale ».
+    """
+
+    def __init__(self, d):
+        self._device_type = d.get("deviceType")
+        self.device_serial_number = d.get("serialNumber")
+        self._device_family = d.get("deviceFamily")
+        self._cluster_members = d.get("clusterMembers") or []
+        self._locale = d.get("locale")   # absent chez Amazon → None → défaut alexapy
+
+
+def _api(dev, login):
+    from alexapy import AlexaAPI
+    return AlexaAPI(_Appareil(dev), login)
+
+
+# Familles qui ne « parlent » pas (annonce/TTS) : Fire TV, l'app, tablettes, groupe.
+_FAMILLES_NON_PARLANTES = {"FIRE_TV", "VOX", "TABLET", "MOBILE_DEVICE", "WHA"}
+
+
+def _est_haut_parleur(d):
+    return str(d.get("deviceFamily", "")).upper() not in _FAMILLES_NON_PARLANTES
+
+
+def _choisir(devices, cible, parlant=False):
     en_ligne = [d for d in devices if d.get("online")]
     if cible:
         c = sans_accents(cible.lower())
         for d in devices:
             if c in sans_accents(str(d.get("accountName", "")).lower()):
                 return d
+    if parlant:   # annonce/TTS sans cible → privilégier un vrai Echo (ex. Echo Show)
+        parleurs = [d for d in en_ligne if _est_haut_parleur(d)]
+        if parleurs:
+            return parleurs[0]
     return en_ligne[0] if en_ligne else (devices[0] if devices else None)
 
 
@@ -149,13 +182,12 @@ async def _etat():
 
 
 async def _annoncer(texte, cible):
-    from alexapy import AlexaAPI
     login = await _assurer_login()
     devices = await _devices(login)
-    dev = _choisir(devices, cible)
+    dev = _choisir(devices, cible, parlant=True)
     if dev is None:
         return "Aucun Echo disponible pour parler."
-    api = AlexaAPI(dev, login)
+    api = _api(dev, login)
     if cible:
         await api.send_tts(texte)
         return f"C'est dit sur {dev.get('accountName','')}."
@@ -164,23 +196,21 @@ async def _annoncer(texte, cible):
 
 
 async def _routine(nom):
-    from alexapy import AlexaAPI
     login = await _assurer_login()
     devices = await _devices(login)
     dev = _choisir(devices, "")
     if dev is None:
         return "Aucun Echo pour déclencher la routine."
-    await AlexaAPI(dev, login).run_routine(nom)
+    await _api(dev, login).run_routine(nom)
     return f"Routine « {nom} » déclenchée."
 
 
 async def _media(action, cible, niveau):
-    from alexapy import AlexaAPI
     login = await _assurer_login()
     dev = _choisir(await _devices(login), cible)
     if dev is None:
         return "Aucun Echo disponible."
-    api = AlexaAPI(dev, login)
+    api = _api(dev, login)
     a = (action or "").lower().strip()
     if a in ("pause", "stop"):
         await api.pause()
