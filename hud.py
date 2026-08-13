@@ -282,7 +282,7 @@ def _scenario():
     """Joue une conversation type en boucle pour tester le rendu."""
     import math
 
-    config("qwen3.5:4b", "whisper medium")
+    config("Claude · claude-haiku-4-5 (demo)", "whisper medium")
     routage("hybride")
     budget(0.27, 3.0, 0.09)
     hermes(0, 48213)

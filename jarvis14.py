@@ -1044,7 +1044,9 @@ def main():
                   "L'assistant ne pourra pas repondre.")
 
     _hud("demarrer")
-    _hud("config", _fournisseur.nom, f"whisper {MODELE_WHISPER}")
+    _modele_hud = getattr(_fournisseur, "modele", "")
+    _hud("config", f"{_fournisseur.nom} · {_modele_hud}" if _modele_hud
+         else _fournisseur.nom, f"whisper {MODELE_WHISPER}")
     _hud_status()
     try:                                   # part Hermes (tokens) au HUD, en fond
         from tools import deleguer_a_hermes as _dh
