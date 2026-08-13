@@ -71,6 +71,27 @@ def _nouveau_login():
         outputpath=_cookie_path, otp_secret=(reglage("alexa.otp_secret", "") or ""))
 
 
+def _proxy_totp_frais(login, base_url):
+    """AlexaProxy qui régénère le code TOTP à CHAQUE remplissage de page.
+
+    Bug amont : AlexaProxy fige le code OTP à sa construction
+    (`get_totp_token()` appelé une seule fois). Un TOTP expire en 30 s → si la
+    page 2FA arrive plus tard, le code injecté est périmé, Amazon le refuse, et le
+    flux reboucle sur la connexion (register → maplanding → oauth en rond). On
+    régénère donc le code au moment exact du remplissage.
+    """
+    from alexapy import AlexaProxy
+
+    class _ProxyFrais(AlexaProxy):
+        def autofill(self, items, html):
+            tok = self._login.get_totp_token()
+            if tok:
+                items = {**items, "otpCode": tok}
+            return super().autofill(items, html)
+
+    return _ProxyFrais(login, base_url)
+
+
 def _nb_cookies_session(login):
     try:
         return sum(1 for _ in login.session.cookie_jar)
@@ -133,11 +154,9 @@ async def _login_navigateur():
         print("Renseigne d'abord alexa.email / alexa.password dans config.yaml.")
         return
     _activer_debug()
-    from alexapy import AlexaProxy
-
     port = int(reglage("alexa.proxy_port", 3000))
     login = _nouveau_login()
-    proxy = AlexaProxy(login, f"http://127.0.0.1:{port}")
+    proxy = _proxy_totp_frais(login, f"http://127.0.0.1:{port}")
 
     await proxy.start_proxy()
     url_ouvrir = str(proxy.access_url())
