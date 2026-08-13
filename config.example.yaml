@@ -239,3 +239,9 @@ gestes:                        # controle par gestes de la main (webcam USB) ; v
     poing:          { action: couper_tts }
     swipe_droite:   { action: obs_scene, sens: suivante }
     swipe_gauche:   { action: obs_scene, sens: precedente }
+
+google_home:                   # EXPERIMENTAL (non teste) ; voir docs/google_home.md
+  project_id:    ""            # ID du projet Device Access (SDM) ; vide = desactive
+  client_id:     ""            # OAuth client (console.cloud.google.com)
+  client_secret: ""
+  refresh_token: ""            # obtenu via l'OAuth Device Access (docs/google_home.md)

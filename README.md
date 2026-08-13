@@ -50,6 +50,8 @@ outils sûrs, écrit seulement des brouillons).
 - 🧭 **Panneau web local** (`/panneau`) — modèles (LLM Ollama + Whisper, reco selon la VRAM), état de la chaîne, permissions — **accessible en local uniquement** ([docs/panneau.md](docs/panneau.md))
 - 🔐 **Sécurité graduée** — niveaux **N1/N2/N3** par outil, « toujours autoriser » révocable, budget LLM par fournisseur
 - ⏻ **Extinction / réveil du PC** — extinction propre à la voix (confirmation N3, délai annulable) ; réveil par prise connectée ou Wake-on-LAN ([docs/wol.md](docs/wol.md))
+- ✋ **Gestes de la main** — pilote lumières / média / OBS d'un geste via webcam, **100 % local** (MediaPipe en sous-process isolé, aucune image ne sort) ([docs/gestes.md](docs/gestes.md))
+- 🏠 **Google Home / Nest** — *(⚠️ expérimental)* liste des appareils Nest + état ([docs/google_home.md](docs/google_home.md))
 
 ## 🎬 Démo
 
@@ -164,6 +166,8 @@ de contenus), `securite.toujours` (autorisations N2 mémorisées), `budget.prix`
 | **Suivi de contenus** | [docs/suivi_contenu.md](docs/suivi_contenu.md) |
 | **Panneau web (modèles · état · permissions)** | [docs/panneau.md](docs/panneau.md) |
 | **Extinction / Wake-on-LAN** | [docs/wol.md](docs/wol.md) |
+| **Gestes de la main (webcam)** | [docs/gestes.md](docs/gestes.md) |
+| **Google Home / Nest** *(⚠️ expérimental)* | [docs/google_home.md](docs/google_home.md) |
 | **Latence perçue (UX)** | [docs/latency.md](docs/latency.md) |
 
 ## 🛡️ Éthique & Sécurité
