@@ -210,6 +210,10 @@
   <div id="badgeMuet" style="display:none;position:fixed;top:16px;right:16px;z-index:9;
     padding:5px 12px;border-radius:999px;background:rgba(255,107,107,.16);
     border:1px solid rgba(255,107,107,.5);color:#ff8a8a;font-size:12px">🔇 Micro coupé</div>
+  <div id="badgeDemo" style="display:none;position:fixed;top:16px;left:16px;z-index:9;
+    padding:5px 12px;border-radius:8px;background:rgba(245,185,66,.16);
+    border:1px solid rgba(245,185,66,.6);color:#f5b942;font-size:12px;letter-spacing:.1em">
+    DÉMO — rien n'est réel</div>
 
   <div class="horloge">
     <div class="heure" id="vHeure">--:--:--</div>
@@ -545,6 +549,9 @@ function appliquer(ev) {
     case "micro":
       S.muet = ev.v;
       majReleve();
+      break;
+    case "demo":
+      $("badgeDemo").style.display = ev.v ? "block" : "none";
       break;
   }
 }

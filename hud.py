@@ -154,6 +154,11 @@ def micro(muet):
     _diffuser({"t": "micro", "v": bool(muet)})
 
 
+def demo(actif):
+    """Affiche un badge DEMO (scenario de demonstration, rien de reel)."""
+    _diffuser({"t": "demo", "v": bool(actif)})
+
+
 # ---------------------------------------------------------------- serveur
 
 
@@ -282,6 +287,7 @@ def _scenario():
     """Joue une conversation type en boucle pour tester le rendu."""
     import math
 
+    demo(True)                                   # badge DEMO : rien n'est reel
     config("Claude · claude-haiku-4-5 (demo)", "whisper medium")
     routage("hybride")
     budget(0.27, 3.0, 0.09)
