@@ -63,19 +63,34 @@ async def main():
     print("  Ton email/mot de passe sont pré-remplis ; fais juste le captcha/2FA.")
     print("=" * 64 + "\n  En attente de la connexion... (Ctrl+C pour annuler)")
 
+    connecte = False
     try:
-        for _ in range(600):  # ~10 min
+        for i in range(600):  # ~10 min
             if (login.status or {}).get("login_successful"):
+                connecte = True
                 break
+            # Toutes les ~3 s, teste aussi la session directement (le proxy peut avoir
+            # capturé le cookie sans poser le drapeau).
+            if i % 3 == 0:
+                try:
+                    if await login.test_loggedin(rebuild_session=False):
+                        connecte = True
+                        break
+                except Exception:
+                    pass
             await asyncio.sleep(1)
-        else:
-            print("\n⏱ Délai dépassé. Relance et connecte-toi plus vite.")
-            return
-        if await login.test_loggedin():
+        if connecte:
+            try:
+                await login.save_cookiefile()
+            except Exception:
+                pass
             print("\n✅ Connecté à Alexa ! Cookie sauvegardé dans", _dossier())
             print("   Redémarre Jarvis, puis dis « mes appareils Alexa ».")
         else:
-            print("\n❌ La capture a échoué — voir logs/alexa/login-debug.log.")
+            print("\n⏱ Délai dépassé sans détecter la connexion.")
+            print("   Si le navigateur te dit pourtant que tu es connecté, relance ce")
+            print("   script (la détection est plus robuste), ou envoie-moi la fin de")
+            print("   logs/alexa/login-debug.log.")
     except KeyboardInterrupt:
         print("\nAnnulé.")
     finally:
