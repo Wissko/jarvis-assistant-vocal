@@ -823,6 +823,37 @@ def traiter(audio, whisper, historique, flux, reveil):
     return relancer
 
 
+def _feedback_geste(geste):
+    """Feedback discret quand un geste est reconnu : petit bip + flash HUD. Non bloquant."""
+    freq = 1200 if geste == "armement" else 900
+    try:
+        threading.Thread(target=lambda: bip(freq, 0.05), daemon=True).start()
+    except Exception:
+        pass
+    _hud("outil", "geste", geste)
+
+
+def _installer_raccourci_gestes():
+    """Raccourci clavier global pour basculer les gestes (optionnel, via 'keyboard')."""
+    combo = config.reglage("gestes.raccourci", "ctrl+alt+g")
+    if not combo:
+        return
+    try:
+        import keyboard
+    except Exception:
+        return  # lib absente : le raccourci est optionnel, on continue sans
+    from core import gestes
+
+    def _toggle():
+        print(gestes.arreter() if gestes.actif() else gestes.demarrer())
+
+    try:
+        keyboard.add_hotkey(combo, _toggle)
+        print(f"Raccourci gestes : {combo}")
+    except Exception:
+        LOG.exception("gestes: raccourci clavier")
+
+
 def main():
     print("Chargement des modeles...")
 
@@ -856,10 +887,23 @@ def main():
     from tools.instagram import demarrer_refresh_instagram
     demarrer_refresh_instagram()
 
-    # Serveur web unifie (pont iPhone + webhook Twilio des appels V2 + futures PWA).
-    if config.reglage("serveur.actif", False) or config.reglage("pont_iphone.actif", False):
+    # Serveur web unifie (pont iPhone + webhook Twilio + panneau + gestes en loopback).
+    if (config.reglage("serveur.actif", False) or config.reglage("pont_iphone.actif", False)
+            or config.reglage("gestes.actif", False)):
         from core.serveur import demarrer as demarrer_serveur_web
         demarrer_serveur_web()
+
+    # Controle par gestes (webcam, sous-process isole 3.11) : hooks + demarrage optionnel.
+    try:
+        import atexit
+        from core import gestes
+        gestes.definir_hooks(couper_tts=couper_parole, feedback=_feedback_geste)
+        atexit.register(gestes.arreter)          # libere la webcam a la sortie
+        if config.reglage("gestes.actif", False):
+            print(gestes.demarrer())
+        _installer_raccourci_gestes()
+    except Exception:
+        LOG.exception("gestes: initialisation")
 
     from core.llm import llm
     _fournisseur = llm()

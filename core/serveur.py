@@ -50,6 +50,11 @@ def app():
         except Exception:
             LOG.exception("montage du panneau de configuration")
         try:
+            from core.gestes import monter_routes as monter_gestes
+            monter_gestes(_APP)                   # /api/gestes (loopback + token)
+        except Exception:
+            LOG.exception("montage des routes gestes")
+        try:
             from tools.appel_direct import monter_ws
             monter_ws(_APP)                        # /stream (Twilio Media Streams)
         except Exception:

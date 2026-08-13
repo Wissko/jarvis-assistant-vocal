@@ -32,3 +32,8 @@ logs/
 # Modeles de voix Piper : trop lourds pour GitHub, a retelecharger.
 # Voir README pour le lien de telechargement.
 voix/
+
+# Gestes : venv isole (Python 3.11 + MediaPipe), modele et calibration locale.
+gestes/.venv-tracker/
+gestes/models/
+gestes/calibration.json

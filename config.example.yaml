@@ -211,3 +211,31 @@ budget:                        # suivi de conso LLM (N9) ; page Etat du panneau
     haiku: [1.0, 5.0]          # tarifs API Anthropic (a ajuster si besoin)
     sonnet: [3.0, 15.0]
     opus: [5.0, 25.0]
+
+gestes:                        # controle par gestes de la main (webcam USB) ; voir docs/gestes.md
+  actif: false                 # demarrer au lancement (sinon : "Jarvis, active les gestes")
+  device: 0                    # index de la webcam USB (0 = premiere)
+  fps: 24                      # ~20-30 suffisent ; CPU-only, ne doit rien voler a Whisper
+  largeur: 640
+  hauteur: 480
+  raccourci: "ctrl+alt+g"      # raccourci clavier pour basculer les gestes ("" = desactive)
+  pause_pendant_live: true     # ignorer les swipes OBS quand un direct est en cours
+  python: ""                   # python du venv tracker ; vide = gestes/.venv-tracker/Scripts/python.exe
+  seuils:                      # ajustables en calibration (gestes/calibration.json prime)
+    pincement: 0.06            # distance pouce-index max pour detecter un pincement
+    tenue_s: 1.0               # duree de maintien d'un geste tenu (poing / main ouverte)
+    cooldown_s: 1.5            # delai mini entre deux commandes (anti-faux-positif)
+    deadzone_lum: 0.06         # zone morte du glissement vertical (luminosite)
+    swipe_seuil: 0.22          # amplitude mini d'un swipe
+    swipe_fenetre_s: 0.4
+  armement:                    # geste d'armement optionnel ("Jarvis regarde")
+    actif: false               # true = les gestes n'agissent qu'apres une main levee 2 s
+    duree_s: 2.0
+    fenetre_s: 8.0             # duree d'activite des gestes apres l'armement
+  mapping:                     # geste -> action (N1/N2 UNIQUEMENT ; jamais N3)
+    pincement_haut: { action: luminosite, piece: salon, pas: 10 }
+    pincement_bas:  { action: luminosite, piece: salon, pas: -10 }
+    main_ouverte:   { action: play_pause }
+    poing:          { action: couper_tts }
+    swipe_droite:   { action: obs_scene, sens: suivante }
+    swipe_gauche:   { action: obs_scene, sens: precedente }
