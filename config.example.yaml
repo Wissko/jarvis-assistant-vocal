@@ -254,8 +254,8 @@ gestes:                        # controle par gestes de la main (webcam USB) ; v
     pincement_bas:  { action: luminosite, piece: salon, pas: -10 }
     main_ouverte:   { action: play_pause }
     poing:          { action: couper_tts }
-    swipe_droite:   { action: obs_scene, sens: suivante }
-    swipe_gauche:   { action: obs_scene, sens: precedente }
+    swipe_droite:   { action: swipe, sens: suivant }    # cascade : OBS scene / seek +10s / fenetre suiv
+    swipe_gauche:   { action: swipe, sens: precedent }  #           OBS scene / seek -10s / fenetre prec
 
 musique:                       # reconnaissance musicale (Shazam-like) ; voir docs/musique.md
   secondes: 8                  # duree de capture par defaut (4-15). Aucune cle requise.

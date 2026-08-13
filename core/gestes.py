@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 from core.config import reglage
+from core.util import sans_accents
 
 LOG = logging.getLogger("jarvis.gestes")
 _RACINE = Path(__file__).resolve().parent.parent
@@ -36,11 +37,12 @@ _MAPPING_DEFAUT = {
     "pincement_bas":  {"action": "luminosite", "piece": "salon", "pas": -10},
     "main_ouverte":   {"action": "play_pause"},
     "poing":          {"action": "couper_tts"},
-    "swipe_droite":   {"action": "obs_scene", "sens": "suivante"},
-    "swipe_gauche":   {"action": "obs_scene", "sens": "precedente"},
+    "swipe_droite":   {"action": "swipe", "sens": "suivant"},
+    "swipe_gauche":   {"action": "swipe", "sens": "precedent"},
 }
 # Actions autorisées par geste (garde-fou : rien d'autre ne peut être déclenché).
-_ACTIONS_SURES = {"luminosite", "play_pause", "couper_tts", "obs_scene", "armement"}
+_ACTIONS_SURES = {"luminosite", "play_pause", "couper_tts", "obs_scene", "swipe",
+                  "armement"}
 
 
 def definir_hooks(couper_tts=None, feedback=None):
@@ -188,6 +190,8 @@ def _executer(action, spec):
             _COUPER_TTS()
     elif action == "obs_scene":
         _obs_scene(spec.get("sens", "suivante"))
+    elif action == "swipe":
+        _swipe(spec.get("sens", "suivant"))
 
 
 def _verifier_non_n3(nom_outil):
@@ -197,12 +201,12 @@ def _verifier_non_n3(nom_outil):
         raise PermissionError(f"outil N3 interdit par geste : {nom_outil}")
 
 
-def _obs_scene(sens):
-    """Scène OBS suivante/précédente. Ignoré pendant le live si configuré."""
+def _obs_scene(sens, force=False):
+    """Scène OBS suivante/précédente. Ignoré pendant le live si configuré (sauf force)."""
     try:
         from tools.obs import _client
         cl = _client()
-        if (reglage("gestes.pause_pendant_live", True)
+        if (not force and reglage("gestes.pause_pendant_live", True)
                 and getattr(cl.get_stream_status(), "output_active", False)):
             LOG.info("gestes: swipe OBS ignoré (live en cours)")
             return
@@ -217,6 +221,105 @@ def _obs_scene(sens):
         cl.set_current_program_scene(scenes[j])
     except Exception as e:
         LOG.info("gestes: OBS indisponible (%s)", e)
+
+
+# ----- swipe CONTEXTUEL : OBS -> app vidéo (seek) -> Alt+Tab (du + spécifique au + général)
+
+_LECTEURS = ("vlc", "mpv", "wmplayer", "mpc-hc", "mpc-be", "potplayer", "smplayer",
+             "kmplayer", "movies", "films")
+_VIDEO_TITRES = ("youtube", "vlc", "netflix", "twitch", "prime video", "disney",
+                 "molotov", "- vlc", "lecteur", ".mp4", ".mkv", ".avi", ".mov")
+_NAVIGATEURS = ("chrome", "firefox", "msedge", "brave", "opera")
+
+
+def _fenetre_active():
+    """(titre, processus) de la fenêtre au premier plan (Windows). ('', '') sinon."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+        u = ctypes.windll.user32
+        h = u.GetForegroundWindow()
+        n = u.GetWindowTextLengthW(h)
+        buf = ctypes.create_unicode_buffer(n + 1)
+        u.GetWindowTextW(h, buf, n + 1)
+        titre = buf.value or ""
+        pid = wintypes.DWORD()
+        u.GetWindowThreadProcessId(h, ctypes.byref(pid))
+        proc = ""
+        k = ctypes.windll.kernel32
+        hp = k.OpenProcess(0x1000, False, pid.value)   # PROCESS_QUERY_LIMITED_INFORMATION
+        if hp:
+            taille = wintypes.DWORD(260)
+            nom = ctypes.create_unicode_buffer(260)
+            if k.QueryFullProcessImageNameW(hp, 0, nom, ctypes.byref(taille)):
+                proc = nom.value.rsplit("\\", 1)[-1]
+            k.CloseHandle(hp)
+        return titre, proc.lower()
+    except Exception:
+        return "", ""
+
+
+def _obs_actif():
+    """OBS au premier plan, OU en train de streamer/enregistrer (live)."""
+    _, proc = _fenetre_active()
+    if "obs" in proc:
+        return True
+    try:
+        from tools.obs import _client
+        cl = _client()
+        if getattr(cl.get_stream_status(), "output_active", False):
+            return True
+        return getattr(cl.get_record_status(), "output_active", False)
+    except Exception:
+        return False
+
+
+def _est_app_video(titre, proc):
+    t = sans_accents(titre.lower())
+    if any(p in proc for p in _LECTEURS):
+        return True
+    return any(k in t for k in _VIDEO_TITRES)
+
+
+def _overlay_geste(label):
+    try:
+        import overlay
+        overlay.afficher(label, duree=2.0)
+    except Exception:
+        pass
+
+
+def _swipe(sens):
+    """Cascade : (1) OBS actif -> scène ; (2) app vidéo au 1er plan -> seek ±10s ;
+    (3) défaut -> bascule de fenêtre (Alt+Tab). Feedback overlay du mode choisi."""
+    suivant = str(sens).startswith("suiv") or sens in ("droite", "avant", "+")
+    # 1) OBS
+    if _obs_actif():
+        _obs_scene("suivante" if suivant else "precedente", force=True)
+        _overlay_geste("📺 Scène OBS " + ("suivante" if suivant else "précédente"))
+        return
+    titre, proc = _fenetre_active()
+    # 2) app vidéo -> seek
+    if _est_app_video(titre, proc):
+        try:
+            import keyboard
+            youtube = "youtube" in sans_accents(titre.lower()) or \
+                any(b in proc for b in _NAVIGATEURS)
+            if youtube:
+                keyboard.send("l" if suivant else "j")     # YouTube ±10 s
+            else:
+                keyboard.send("right" if suivant else "left")  # lecteurs (VLC…)
+        except Exception:
+            pass
+        _overlay_geste("🎬 +10s" if suivant else "🎬 -10s")
+        return
+    # 3) défaut -> Alt+Tab
+    try:
+        import keyboard
+        keyboard.send("alt+tab" if suivant else "alt+shift+tab")
+    except Exception:
+        pass
+    _overlay_geste("🪟 Fenêtre " + ("suivante" if suivant else "précédente"))
 
 
 # ---------------------------------------------------------------- routes

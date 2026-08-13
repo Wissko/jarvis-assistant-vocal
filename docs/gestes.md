@@ -47,10 +47,24 @@ Des gestes **tenus** (pas d'instantané) pour éviter les faux positifs :
 | **Pincement** (pouce-index) + **glisser vertical** | Luminosité de la pièce (± par pas) |
 | **Main ouverte** tenue ~1 s | Play / pause musique |
 | **Poing** tenu ~1 s | **Couper le TTS** en cours (le « stop » silencieux — pratique en call) |
-| **Swipe** gauche / droite | Scène OBS précédente / suivante *(ignoré pendant le live)* |
+| **Swipe** gauche / droite | **Contextuel en cascade** (voir ci-dessous) |
 
 Chaque geste reconnu = **feedback discret** (petit bip + flash HUD) pour savoir que
 c'est pris. Le mapping est **entièrement éditable** dans `config.yaml → gestes.mapping`.
+
+### Le swipe est contextuel (du plus spécifique au plus général)
+
+Un swipe gauche/droite fait **une chose différente selon ce qui est au premier plan**,
+avec un **retour overlay** qui indique le mode :
+
+1. **OBS actif / en live** → scène OBS précédente / suivante — 📺 « Scène OBS suivante ».
+2. **Une app vidéo au premier plan** (YouTube dans le navigateur, VLC, lecteur…) →
+   **seek −10 s / +10 s** (touches envoyées à l'app qui a le focus) — 🎬 « +10s ».
+3. **Sinon** → **bascule de fenêtre** style Alt+Tab (fenêtre précédente / suivante) —
+   🪟 « Fenêtre suivante ».
+
+*(Les pistes musicales ne sont plus sur le swipe — la voix s'en charge.)*
+**Backlog v2** : swipe à **deux doigts** = déplacer la fenêtre active vers l'autre écran.
 
 ## Anti-faux-positifs (le vrai défi)
 
@@ -79,10 +93,11 @@ n'est enregistrée** pendant la calibration.
 - **Choix du périphérique** : `gestes.device` (0 = première webcam USB).
 - **Statut** : `GET http://127.0.0.1:8790/api/gestes/status` → `{actif}` (repris dans
   `hermes-workspace/status-hermes.ps1` : *Tracker de gestes : UP/DOWN*).
-- **Cohabitation stream** : si un **direct OBS** est en cours, les swipes de scène
-  sont **ignorés** (`gestes.pause_pendant_live: true`). Si OBS occupe déjà la webcam
-  physique, sélectionne une autre `device`, ou utilise la **caméra virtuelle OBS**
-  comme source des gestes, ou coupe les gestes le temps du live.
+- **Cohabitation stream** : pendant un **direct OBS**, le swipe **change de scène**
+  (c'est le mode 1 de la cascade). Si OBS occupe déjà la webcam physique, sélectionne
+  une autre `device`, ou utilise la **caméra virtuelle OBS** comme source des gestes.
+  *(`gestes.pause_pendant_live` ne s'applique plus au swipe contextuel, seulement à
+  l'ancienne action `obs_scene` si tu la remets dans le mapping.)*
 - **Indicateur** : la LED de la webcam s'allume quand la caméra est active — jamais
   de capture à ton insu.
 
