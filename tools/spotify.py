@@ -85,31 +85,37 @@ def _me():
     return requests.get(f"{_API}/me", headers=_h(), timeout=15).json()
 
 
-def _playlist_id():
-    """Id de la playlist cible (spotify.playlist ou « Jarvis Finds »), créée si besoin."""
+def _playlist_id(nom=None, creer=True):
+    """Id d'une playlist par son nom. nom=None -> playlist par defaut (spotify.playlist,
+    creee si absente). Un nom explicite n'est PAS cree s'il n'existe pas (creer=False
+    conseille) -> renvoie None pour eviter une playlist creee par erreur de dictee."""
     global _PLAYLIST_ID
-    if _PLAYLIST_ID:
+    par_defaut = nom is None
+    cible = nom or reglage("spotify.playlist", "Jarvis Finds")
+    if par_defaut and _PLAYLIST_ID:
         return _PLAYLIST_ID
-    nom = reglage("spotify.playlist", "Jarvis Finds")
     with _VERROU:
-        # cherche parmi les playlists de l'utilisateur
         url = f"{_API}/me/playlists?limit=50"
         while url:
             d = requests.get(url, headers=_h(), timeout=15).json()
             for pl in d.get("items", []):
-                if sans_accents((pl.get("name") or "").lower()) == sans_accents(nom.lower()):
-                    _PLAYLIST_ID = pl["id"]
-                    return _PLAYLIST_ID
+                if sans_accents((pl.get("name") or "").lower()) == sans_accents(cible.lower()):
+                    if par_defaut:
+                        _PLAYLIST_ID = pl["id"]
+                    return pl["id"]
             url = d.get("next")
-        # sinon : la crée (privée)
+        if not creer:
+            return None
         uid = _me()["id"]
         r = requests.post(f"{_API}/users/{uid}/playlists", headers=_h(),
-                          data=json.dumps({"name": nom, "public": False,
+                          data=json.dumps({"name": cible, "public": False,
                                            "description": "Trouvailles de Jarvis."}),
                           timeout=15)
         r.raise_for_status()
-        _PLAYLIST_ID = r.json()["id"]
-        return _PLAYLIST_ID
+        pid = r.json()["id"]
+        if par_defaut:
+            _PLAYLIST_ID = pid
+        return pid
 
 
 def _chercher_uri(titre, artiste):
@@ -135,20 +141,25 @@ def _deja_present(pid, uri):
     return False
 
 
-def _ajouter_titre(titre, artiste):
-    """Ajoute (titre, artiste) à la playlist. Renvoie un message vocal."""
+def _ajouter_titre(titre, artiste, playlist=None):
+    """Ajoute (titre, artiste) à la playlist voulue (None = celle par défaut)."""
     if not (titre and str(titre).strip()):
         return "Je ne sais pas quelle musique ajouter."
     uri = _chercher_uri(titre, artiste)
     if not uri:
         return f"Je n'ai pas trouvé « {titre} » sur Spotify."
-    pid = _playlist_id()
+    demande = playlist.strip() if (playlist and playlist.strip()) else None
+    pid = _playlist_id(demande, creer=(demande is None))
+    if not pid:
+        return (f"Je n'ai pas trouvé la playlist « {demande} » chez toi. "
+                "Crée-la d'abord dans Spotify, ou dis-la sans préciser (j'utilise "
+                f"{reglage('spotify.playlist', 'Jarvis Finds')}).")
     if _deja_present(pid, uri):
         return f"« {titre} » est déjà dans la playlist."
     r = requests.post(f"{_API}/playlists/{pid}/tracks", headers=_h(),
                       data=json.dumps({"uris": [uri]}), timeout=15)
     r.raise_for_status()
-    nom = reglage("spotify.playlist", "Jarvis Finds")
+    nom = demande or reglage("spotify.playlist", "Jarvis Finds")
     return f"Ajoutée à {nom} : {titre}" + (f" de {artiste}." if artiste else ".")
 
 
@@ -170,15 +181,18 @@ def auto_ajouter(titre, artiste):
 
 @outil(
     nom="ajouter_a_playlist",
-    description="Ajoute la DERNIÈRE musique reconnue (ou un titre donné) à ma playlist "
-                "Spotify « Jarvis Finds ». Pour « ajoute-la à ma playlist », « mets "
-                "cette chanson dans ma playlist », « ajoute ça à Spotify ».",
+    description="Ajoute la DERNIÈRE musique reconnue (ou un titre donné) à une playlist "
+                "Spotify. Par défaut « Jarvis Finds » ; précise une playlist avec le "
+                "paramètre playlist. Pour « ajoute-la à ma playlist », « mets cette "
+                "chanson dans ma playlist Chill », « ajoute ça à Spotify ».",
     parametres={
         "type": "object",
         "properties": {
             "titre": {"type": "string", "description": "Titre (optionnel ; vide = la "
                       "dernière musique reconnue)."},
             "artiste": {"type": "string", "description": "Artiste (optionnel)."},
+            "playlist": {"type": "string", "description": "Nom d'une playlist précise "
+                         "(optionnel ; vide = la playlist par défaut). Doit déjà exister."},
         },
     },
     lent=True,
@@ -186,7 +200,7 @@ def auto_ajouter(titre, artiste):
     mcp_expose=False,
     affichage="jamais",
 )
-def ajouter_a_playlist(titre: str = "", artiste: str = "") -> str:
+def ajouter_a_playlist(titre: str = "", artiste: str = "", playlist: str = "") -> str:
     if not _configure():
         return _msg_config()
     if not (titre and titre.strip()):
@@ -199,7 +213,7 @@ def ajouter_a_playlist(titre: str = "", artiste: str = "") -> str:
             return "Je n'ai pas de musique récente à ajouter. Dis d'abord « c'est quoi cette musique ? »."
         titre, artiste = derniere
     try:
-        return _ajouter_titre(titre, artiste)
+        return _ajouter_titre(titre, artiste, playlist)
     except requests.HTTPError as e:
         code = getattr(e.response, "status_code", 0)
         if code == 403:
