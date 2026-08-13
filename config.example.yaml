@@ -246,6 +246,18 @@ musique:                       # reconnaissance musicale (Shazam-like) ; voir do
   # Installe le venv isole une fois : python scripts/setup_musique.py
   # (shazamio-core n'a pas de wheel Python 3.13 -> venv 3.12 dedie, comme les gestes)
 
+overlay:                       # mini-fenetre qui affiche a l'ecrit ce que Jarvis dit ; docs/overlay.md
+  actif: true                  # afficher l'overlay (Windows uniquement ; sinon ignore)
+  ecran: 1                     # moniteur cible (0 = principal, 1 = 2e ecran...)
+  coin: "bas-droite"           # haut-gauche / haut-droite / bas-gauche / bas-droite
+  opacite: 0.92                # 0.3 - 1.0
+  largeur: 420                 # px
+  duree_min: 4.0               # s d'affichage (reponse courte)
+  duree_max: 14.0              # s d'affichage (reponse longue)
+  marge: 24                    # px depuis le bord de l'ecran
+  exclure_obs: true            # invisible pour OBS/game-capture (tes reponses hors live)
+  muet_visuel: false           # true = repond SANS parler (overlay seul) ; bascule a la voix
+
 google_home:                   # EXPERIMENTAL (non teste) ; voir docs/google_home.md
   project_id:    ""            # ID du projet Device Access (SDM) ; vide = desactive
   client_id:     ""            # OAuth client (console.cloud.google.com)

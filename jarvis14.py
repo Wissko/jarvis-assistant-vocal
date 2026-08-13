@@ -109,7 +109,29 @@ try:
 except Exception:
     hud = None
 
+try:
+    import overlay as _overlay
+except Exception:
+    _overlay = None
+
 _dernier_etat_hud = None
+_DERNIER_OUTIL = None                                   # pour la carte overlay
+_OUTILS_MUSIQUE = {"identifier_musique", "identifier_musique_fichier",
+                   "derniere_musique"}
+
+
+def _afficher_overlay(texte):
+    """Pousse la reponse dans l'overlay visuel (carte selon le dernier outil)."""
+    global _DERNIER_OUTIL
+    if _overlay is None or not texte:
+        _DERNIER_OUTIL = None
+        return
+    typ = "musique" if _DERNIER_OUTIL in _OUTILS_MUSIQUE else "reponse"
+    _DERNIER_OUTIL = None
+    try:
+        _overlay.afficher(texte, type=typ)
+    except Exception:
+        pass
 
 
 def _hud(methode, *args):
@@ -199,6 +221,8 @@ def dire(texte, interruptible=True):
     interruptible=False : le barge-in est desactive pendant cette phrase (utilise
     pour la question de confirmation : la reponse de l'utilisateur est un oui/non,
     pas une interruption)."""
+    if _overlay is not None and _overlay.est_muet():   # mode "silencieux visuel" :
+        return                                          # la reponse s'affiche, pas de TTS.
     if _INTERRUPTION.is_set():
         return
     from core.tts import tts
@@ -430,6 +454,8 @@ def _executer_outils(blocs):
                 resultat = "Desole, je n'ai pas reussi a faire ca."
 
         LOG.info("outil %s args=%s -> %s", nom, arguments, str(resultat)[:200])
+        global _DERNIER_OUTIL
+        _DERNIER_OUTIL = nom
 
         # Cas image (capture d'ecran) : bloc image dans le tool_result.
         if isinstance(resultat, dict) and resultat.get("image"):
@@ -829,6 +855,7 @@ def traiter(audio, whisper, historique, flux, reveil):
             dire(texte)
 
     _hud("dire_jarvis", texte)
+    _afficher_overlay(texte)
     print(f"  Jarvis : {texte}\n")
     _tronquer(historique)
     return relancer
@@ -977,6 +1004,25 @@ def main():
         _musique.definir_capture_micro(_capturer_musique)
     except Exception:
         LOG.exception("musique: hook capture micro")
+
+    # Overlay de reponses (fenetre flottante Windows) : demarre masque, cout nul au
+    # repos ; pilotable par config overlay.* et a la voix ("affiche les reponses").
+    if _overlay is not None and config.reglage("overlay.actif", True):
+        try:
+            _overlay.demarrer({
+                "actif": True,
+                "muet": config.reglage("overlay.muet_visuel", False),
+                "ecran": config.reglage("overlay.ecran", 1),
+                "coin": config.reglage("overlay.coin", "bas-droite"),
+                "opacite": config.reglage("overlay.opacite", 0.92),
+                "largeur": config.reglage("overlay.largeur", 420),
+                "duree_min": config.reglage("overlay.duree_min", 4.0),
+                "duree_max": config.reglage("overlay.duree_max", 14.0),
+                "marge": config.reglage("overlay.marge", 24),
+                "exclure_obs": config.reglage("overlay.exclure_obs", True),
+            })
+        except Exception:
+            LOG.exception("overlay: demarrage")
 
     print('\nPret. Dites "Hey Jarvis". Ctrl+C pour quitter.\n')
     print('Vous pouvez le couper en redisant "Hey Jarvis" pendant qu\'il parle.\n')
