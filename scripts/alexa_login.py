@@ -223,9 +223,26 @@ async def _login_navigateur():
             pass
 
 
+def _afficher_code():
+    """Affiche un code TOTP frais (à taper à la main si l'auto-remplissage rate)."""
+    s = (reglage("alexa.otp_secret", "") or "").replace(" ", "")
+    if not s:
+        print("Aucun alexa.otp_secret dans config.yaml.")
+        return
+    try:
+        import pyotp
+        totp = pyotp.TOTP(s)
+        reste = 30 - (int(__import__("time").time()) % 30)
+        print(f"Code d'authentification : {totp.now()}   (valide encore ~{reste} s)")
+    except Exception as e:
+        print("Secret TOTP invalide :", e)
+
+
 async def main():
     if "--check" in sys.argv:
         await _check()
+    elif "--code" in sys.argv:
+        _afficher_code()
     else:
         await _login_navigateur()
 
