@@ -52,7 +52,7 @@ outils sûrs, écrit seulement des brouillons).
 - ⏻ **Extinction / réveil du PC** — extinction propre à la voix (confirmation N3, délai annulable) ; réveil par prise connectée ou Wake-on-LAN ([docs/wol.md](docs/wol.md))
 - ✋ **Gestes de la main** — pilote lumières / média / OBS d'un geste via webcam, **100 % local** (MediaPipe en sous-process isolé, aucune image ne sort) ([docs/gestes.md](docs/gestes.md))
 - 🏠 **Google Home / Nest** — *(⚠️ expérimental)* liste des appareils Nest + état ([docs/google_home.md](docs/google_home.md))
-- 🔵 **Alexa / Echo** — *(⚠️ expérimental)* annonces/TTS, média et déclenchement de Routines (contrôle d'appareils via routines) ([docs/alexa.md](docs/alexa.md))
+- 🔵 **Alexa / Echo** — *(via API non officielle)* annonces/TTS, média, et contrôle d'appareils via Routines (« allume la clim », « éteins la télé ») ([docs/alexa.md](docs/alexa.md))
 
 ## 🎬 Démo
 
@@ -169,7 +169,7 @@ de contenus), `securite.toujours` (autorisations N2 mémorisées), `budget.prix`
 | **Extinction / Wake-on-LAN** | [docs/wol.md](docs/wol.md) |
 | **Gestes de la main (webcam)** | [docs/gestes.md](docs/gestes.md) |
 | **Google Home / Nest** *(⚠️ expérimental)* | [docs/google_home.md](docs/google_home.md) |
-| **Alexa / Echo** *(⚠️ expérimental)* | [docs/alexa.md](docs/alexa.md) |
+| **Alexa / Echo** *(via API non officielle)* | [docs/alexa.md](docs/alexa.md) |
 | **Latence perçue (UX)** | [docs/latency.md](docs/latency.md) |
 
 ## 🛡️ Éthique & Sécurité

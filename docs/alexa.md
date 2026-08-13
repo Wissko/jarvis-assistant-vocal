@@ -1,9 +1,10 @@
-# Alexa / Amazon Echo (⚠️ Expérimental)
+# Alexa / Amazon Echo (via API non officielle)
 
-> **⚠️ Expérimental — via `alexapy`, une lib communautaire non officielle.** Ça
-> **fonctionne** (c'est ce qu'utilise Home Assistant), mais l'accès repose sur une
-> connexion au compte Amazon par cookie : **fragile**, Amazon peut le casser à tout
-> moment. Retours bienvenus via les
+> **✅ Fonctionne** (annonces, média, contrôle d'appareils via Routines) **mais via
+> `alexapy`, une lib communautaire non officielle** (c'est ce qu'utilise Home
+> Assistant). L'accès repose sur une session au compte Amazon : Amazon peut le
+> casser à tout moment — si ça arrive, relance `python scripts/alexa_login.py`.
+> Retours bienvenus via les
 > [issues](https://github.com/sosoj92/jarvis-assistant-vocal/issues).
 
 ## Le choix d'API et ses limites (honnête)
