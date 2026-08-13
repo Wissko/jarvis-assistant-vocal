@@ -76,13 +76,13 @@ async def _assurer_login():
     login = AlexaLogin(
         url=reglage("alexa.url", "amazon.fr"),
         email=reglage("alexa.email", ""), password=reglage("alexa.password", ""),
-        outputpath=_cookie_path, otp_secret=(reglage("alexa.otp_secret", "") or ""),
-        oauth_login=False)
+        outputpath=_cookie_path, otp_secret=(reglage("alexa.otp_secret", "") or ""))
     cookies = login.load_cookie()
-    if cookies and await login.test_loggedin(cookies):
+    # login() réutilise le refresh_token / les cookies capturés par le proxy.
+    await login.login(cookies=cookies)
+    if await login.test_loggedin():
         _LOGIN = login
         return login
-    # Pas de session valide : la connexion interactive est requise (captcha/2FA).
     raise RuntimeError("Connexion Alexa requise : lance « python scripts/alexa_login.py ».")
 
 

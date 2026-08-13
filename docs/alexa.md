@@ -49,13 +49,21 @@ alexa:
   url: "amazon.fr"                 # ou amazon.com, amazon.de...
 ```
 
-### 3. Connexion interactive (une fois)
+### 3. Connexion assistée par navigateur (une fois)
+Amazon a fermé le login « headless » par identifiants ; on passe donc par un **proxy
+local** (la méthode de Home Assistant) : tu te connectes **normalement dans ton
+navigateur**, le proxy capture la session.
+
 ```bash
-python scripts/alexa_login.py
+uv run python scripts/alexa_login.py
 ```
-Gère le **captcha** et le **2FA** en interactif, puis **sauvegarde le cookie** (dans
-`logs/alexa/`, gitignoré). Les outils Alexa réutilisent ce cookie ensuite. Redémarre
-Jarvis : **« Jarvis, mes appareils Alexa »**.
+Le script affiche une adresse **`http://127.0.0.1:3000`** → **ouvre-la dans ton
+navigateur, sur ce PC**. Connecte-toi à Amazon comme d'habitude (email/mot de passe
+**pré-remplis**, puis **captcha / 2FA** dans le navigateur). Dès que c'est validé, le
+script affiche **« ✅ Connecté »** et **sauvegarde le cookie** (dans `logs/alexa/`,
+gitignoré). Redémarre Jarvis : **« Jarvis, mes appareils Alexa »**.
+
+*(Port occupé ? change `alexa.proxy_port` dans `config.yaml`.)*
 
 ### 4. Contrôler tes lumières via des Routines
 Dans l'app **Alexa → Routines → +** : crée une routine, déclencheur **« Quand vous

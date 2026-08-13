@@ -1,14 +1,15 @@
-"""Connexion interactive à Alexa (à faire UNE fois) — gère captcha / 2FA.
+"""Connexion Alexa assistée par navigateur (à faire UNE fois).
 
     python scripts/alexa_login.py
 
-Se connecte au compte Amazon (email/password de config.yaml) via le login classique
-d'alexapy (oauth_login=False), gère le captcha et le 2FA en interactif, et sauvegarde
-le cookie de session (dans logs/alexa/). Les outils Alexa réutilisent ensuite ce
-cookie. Voir docs/alexa.md.
+Amazon a fermé le login « headless » par identifiants. La méthode qui marche
+(celle de Home Assistant) : un **proxy local** ouvre une page où tu te connectes
+**normalement dans ton navigateur** (email, mot de passe, captcha, 2FA — tout se
+fait chez Amazon), et le proxy **capture la session**. Le cookie est sauvegardé
+dans logs/alexa/, réutilisé ensuite par les outils Alexa. Voir docs/alexa.md.
 
-⚠️ alexapy est une lib communautaire non officielle : l'auth peut casser si Amazon
-change quelque chose. En cas d'échec, le détail est écrit dans logs/alexa/login-debug.log.
+⚠️ alexapy est une lib communautaire non officielle : ça peut casser si Amazon
+change quelque chose. Détail des échecs : logs/alexa/login-debug.log.
 """
 import asyncio
 import logging
@@ -31,12 +32,12 @@ def _cookie_path(fichier):
 
 
 def _activer_debug():
-    """Logue le détail d'alexapy dans un fichier (les erreurs de login y sont tracées)."""
     h = logging.FileHandler(_dossier() / "login-debug.log", encoding="utf-8")
     h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
-    log = logging.getLogger("alexapy")
-    log.setLevel(logging.DEBUG)
-    log.addHandler(h)
+    for nom in ("alexapy", "authcaptureproxy"):
+        lg = logging.getLogger(nom)
+        lg.setLevel(logging.DEBUG)
+        lg.addHandler(h)
 
 
 async def main():
@@ -44,46 +45,44 @@ async def main():
         print("Renseigne d'abord alexa.email / alexa.password dans config.yaml.")
         return
     _activer_debug()
-    from alexapy import AlexaLogin
+    from alexapy import AlexaLogin, AlexaProxy
+
+    port = int(reglage("alexa.proxy_port", 3000))
     login = AlexaLogin(
         url=reglage("alexa.url", "amazon.fr"),
         email=reglage("alexa.email", ""), password=reglage("alexa.password", ""),
-        outputpath=_cookie_path, otp_secret=(reglage("alexa.otp_secret", "") or ""),
-        oauth_login=False)  # login email/mot de passe direct (pas OAuth device)
+        outputpath=_cookie_path, otp_secret=(reglage("alexa.otp_secret", "") or ""))
+    proxy = AlexaProxy(login, f"http://127.0.0.1:{port}")
+
+    await proxy.start_proxy()
+    url_ouvrir = str(proxy.access_url())
+    print("\n" + "=" * 64)
+    print("  Ouvre CETTE adresse dans ton navigateur (sur ce PC) :")
+    print("     ", url_ouvrir)
+    print("  Connecte-toi à Amazon normalement (email, mot de passe, 2FA).")
+    print("  Ton email/mot de passe sont pré-remplis ; fais juste le captcha/2FA.")
+    print("=" * 64 + "\n  En attente de la connexion... (Ctrl+C pour annuler)")
 
     try:
-        data = None
-        for _ in range(8):
-            await login.login(data=data)
-            if await login.test_loggedin():
-                print("\n✅ Connecté à Alexa. Cookie sauvegardé dans",
-                      _dossier(), "\n   Redémarre Jarvis puis dis « mes appareils Alexa ».")
-                return
-            st = login.status or {}
-            data = {}
-            if st.get("captcha_required"):
-                print("\nCaptcha à résoudre — ouvre :", st.get("captcha_image_url", "(cf. debug)"))
-                data["captcha"] = input("  Saisis le captcha : ").strip()
-            if st.get("securitycode_required"):
-                data["securitycode"] = input("  Code 2FA (SMS ou appli) : ").strip()
-            if st.get("claimspicker_required"):
-                print("\nMéthode de vérification :", st.get("claimspicker_message", ""))
-                data["claimsoption"] = input("  Choix (numéro) : ").strip()
-            if st.get("authselect_required"):
-                print("\nSélection d'authentification :", st.get("authselect_message", ""))
-                data["authselectoption"] = input("  Choix (numéro) : ").strip()
-            if st.get("verificationcode_required"):
-                data["verificationcode"] = input("  Code de vérification : ").strip()
-            if not data:
-                print("\n❌ Login échoué sans étape à saisir. Détail :",
-                      "logs/alexa/login-debug.log")
-                print("   Statut renvoyé :", st or "(vide)")
-                print("   Pistes : mauvais mot de passe, mauvais domaine (alexa.url = "
-                      "amazon.fr / .com / .de…), ou Amazon bloque le login sans navigateur "
-                      "(connecte-toi d'abord sur le site Amazon depuis ce PC, puis relance).")
-                return
-        print("\nTrop de tentatives — recommence.")
+        for _ in range(600):  # ~10 min
+            if (login.status or {}).get("login_successful"):
+                break
+            await asyncio.sleep(1)
+        else:
+            print("\n⏱ Délai dépassé. Relance et connecte-toi plus vite.")
+            return
+        if await login.test_loggedin():
+            print("\n✅ Connecté à Alexa ! Cookie sauvegardé dans", _dossier())
+            print("   Redémarre Jarvis, puis dis « mes appareils Alexa ».")
+        else:
+            print("\n❌ La capture a échoué — voir logs/alexa/login-debug.log.")
+    except KeyboardInterrupt:
+        print("\nAnnulé.")
     finally:
+        try:
+            await proxy.stop_proxy()
+        except Exception:
+            pass
         try:
             await login.close()
         except Exception:
