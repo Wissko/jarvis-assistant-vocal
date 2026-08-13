@@ -167,7 +167,26 @@ def _capturer_et_reconnaitre(source, secondes):
     _ecrire_wav(samples, sr, wav)
     res = _reconnaitre(wav)
     _logger(res, src_log)
+    if res.get("ok"):                     # découverte live -> auto-ajout Spotify (option)
+        try:
+            from tools import spotify
+            spotify.auto_ajouter(res.get("titre"), res.get("artiste"))
+        except Exception:
+            pass
     return _formuler(res)
+
+
+def derniere_reconnaissance():
+    """(titre, artiste) de la dernière musique reconnue, ou None (pour Spotify)."""
+    if not _NOTES.exists():
+        return None
+    import re
+    lignes = [l for l in _NOTES.read_text(encoding="utf-8").splitlines()
+              if l.startswith("- ")]
+    if not lignes:
+        return None
+    m = re.search(r"\*\*(.+?)\*\*\s*—\s*([^·]+)", lignes[-1])
+    return (m.group(1).strip(), m.group(2).strip()) if m else None
 
 
 # --------------------------------------------------------------- outils

@@ -173,6 +173,7 @@ de contenus), `securite.toujours` (autorisations N2 mémorisées), `budget.prix`
 | **Extinction / Wake-on-LAN** | [docs/wol.md](docs/wol.md) |
 | **Gestes de la main (webcam)** | [docs/gestes.md](docs/gestes.md) |
 | **Reconnaissance musicale (Shazam-like)** | [docs/musique.md](docs/musique.md) |
+| **Spotify (playlist des musiques reconnues)** | [docs/spotify.md](docs/spotify.md) |
 | **Overlay de réponses (fenêtre flottante)** | [docs/overlay.md](docs/overlay.md) |
 | **Google Home / Nest** *(⚠️ expérimental)* | [docs/google_home.md](docs/google_home.md) |
 | **Alexa / Echo** *(via API non officielle)* | [docs/alexa.md](docs/alexa.md) |

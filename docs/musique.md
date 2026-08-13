@@ -27,8 +27,11 @@ d'une vidéo d'inspiration. Formats audio courants + pistes audio de vidéos.
 
 Chaque reconnaissance est notée dans `notes/musiques.md` (titre, artiste, date,
 source). « **Jarvis, c'était quoi la musique de tout à l'heure ?** » →
-`derniere_musique`. *(Ajout à une playlist Spotify : pas encore — aucune intégration
-Spotify dans le projet pour l'instant ; ça se notera ici en attendant.)*
+`derniere_musique`.
+
+**Ajout à Spotify** : « **ajoute-la à ma playlist** » ajoute la dernière musique
+reconnue à ta playlist « Jarvis Finds » ; option d'**ajout automatique** à chaque
+découverte (`spotify.auto_ajout: true`). Voir [spotify.md](spotify.md).
 
 ## Installation (une fois)
 

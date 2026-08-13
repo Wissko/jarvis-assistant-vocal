@@ -262,6 +262,13 @@ musique:                       # reconnaissance musicale (Shazam-like) ; voir do
   # Installe le venv isole une fois : python scripts/setup_musique.py
   # (shazamio-core n'a pas de wheel Python 3.13 -> venv 3.12 dedie, comme les gestes)
 
+spotify:                       # ajouter les musiques reconnues a une playlist ; docs/spotify.md
+  client_id: ""                # https://developer.spotify.com/dashboard (cree une app)
+  client_secret: ""            # + URI de redirection : http://127.0.0.1:8899/callback
+  playlist: "Jarvis Finds"     # nom de la playlist cible (creee si absente)
+  auto_ajout: false            # true = ajoute AUTOMATIQUEMENT chaque musique reconnue
+  # Connexion une fois : python scripts/spotify_login.py (refresh_token dans logs/spotify/)
+
 overlay:                       # mini-fenetre qui affiche a l'ecrit ce que Jarvis dit ; docs/overlay.md
   actif: true                  # afficher l'overlay (Windows uniquement ; sinon ignore)
   ecran: 1                     # moniteur cible (0 = principal, 1 = 2e ecran...)
