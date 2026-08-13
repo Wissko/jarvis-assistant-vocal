@@ -38,8 +38,21 @@ Le cockpit affiche :
   valeur vue) ;
 - **Répartition par catégorie**.
 
-*(Import CSV bancaire + saisie dépenses/rentrées : prévu en Phase 1b — un dossier
-surveillé, catégorisation par règles + LLM local, jamais de credentials.)*
+### Détection automatique par mail (recommandé)
+
+« **Jarvis, détecte mes abonnements** » (`detecter_abonnements`) : scanne tes **reçus
+Gmail** (Apple, Netflix, Spotify, Adobe…) des derniers mois, en déduit service +
+montant + périodicité, et écrit une **proposition** dans
+`finances/abonnements_detectes.yaml` (revue, jamais d'écrasement). Puis « **intègre-les** »
+(`integrer_abonnements_detectes`, **confirmation**) les ajoute à `abonnements.yaml`
+sans toucher à tes entrées manuelles.
+
+Avantages (fidèle à la doctrine) : **aucun credential bancaire, aucune API
+d'agrégation** — ça passe par ton Gmail déjà connecté (IMAP), 100 % local. Attrape
+même les **abonnements Apple** (que le relevé bancaire regroupe en une seule ligne).
+C'est **heuristique** → d'où la revue avant intégration.
+
+*(Import CSV bancaire + dépenses/rentrées ponctuelles : Phase 1b suivante.)*
 
 ## À venir (phases suivantes)
 
