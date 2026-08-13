@@ -39,12 +39,22 @@ def _post(chemin, corps=None):
     return r
 
 
+_PIECE = (reglage("amaran.piece", "") or "").strip()
+_NOMS = [str(n) for n in (reglage("amaran.noms", []) or [])]
+_ALIAS = ", ".join(["amaran", "key light", "projecteur", "lumière vidéo"] + _NOMS)
+_DESC = (
+    f"Pilote la lumière vidéo amaran (aussi appelée : {_ALIAS}) : allumer/éteindre, "
+    "intensité, température de couleur, ou couleur. Pour « allume l'amaran », « allume "
+    "la key light à 60 % », « mets l'amaran en 5600 kelvin », « passe-la en bleu », "
+    "« éteins la lumière vidéo »."
+    + (f" Elle est dans la {_PIECE} : utilise CET outil dès que l'utilisateur parle de "
+       f"« la lumière de la {_PIECE} » (allume-la EN PLUS de la lampe de la pièce si elle "
+       "existe)." if _PIECE else ""))
+
+
 @outil(
     nom="controler_amaran",
-    description="Pilote la/les lumière(s) vidéo amaran (key light) : allumer/éteindre, "
-                "intensité, température de couleur, ou couleur. Pour « allume la key "
-                "light à 60 % », « mets l'amaran en 5600 kelvin », « passe l'amaran en "
-                "bleu », « éteins la lumière vidéo ».",
+    description=_DESC,
     parametres={
         "type": "object",
         "properties": {

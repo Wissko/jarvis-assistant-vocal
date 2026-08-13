@@ -281,6 +281,8 @@ finances:                      # transactions (import CSV, puis PSD2) ; docs/coc
 
 amaran:                        # lumieres video amaran (BLE mesh via ESP32) ; docs/lumieres_video.md
   url: ""                      # http://<ip-esp32>:2708 (firmware wesbos/amaran-BLE-control) ; vide = desactive
+  piece: ""                    # piece ou elle se trouve (ex. "chambre") -> repond aussi a "la lumiere de la chambre"
+  noms: []                     # alias supplementaires reconnus (ex. ["ma lumiere", "spot"])
 
 overlay:                       # mini-fenetre qui affiche a l'ecrit ce que Jarvis dit ; docs/overlay.md
   actif: true                  # afficher l'overlay (Windows uniquement ; sinon ignore)
