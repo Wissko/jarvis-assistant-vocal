@@ -245,3 +245,10 @@ google_home:                   # EXPERIMENTAL (non teste) ; voir docs/google_hom
   client_id:     ""            # OAuth client (console.cloud.google.com)
   client_secret: ""
   refresh_token: ""            # obtenu via l'OAuth Device Access (docs/google_home.md)
+
+alexa:                         # EXPERIMENTAL (via alexapy, non officiel) ; voir docs/alexa.md
+  email: ""                    # compte Amazon ; vide = desactive
+  password: ""
+  otp_secret: ""               # graine TOTP du 2FA (recommande pour une reconnexion sans intervention)
+  url: "amazon.fr"             # domaine Amazon (amazon.fr, amazon.com, amazon.de...)
+  dossier: "logs/alexa"        # cookie de session (sous logs/, gitignore)
