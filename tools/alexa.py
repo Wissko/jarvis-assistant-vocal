@@ -77,7 +77,7 @@ async def _assurer_login():
         url=reglage("alexa.url", "amazon.fr"),
         email=reglage("alexa.email", ""), password=reglage("alexa.password", ""),
         outputpath=_cookie_path, otp_secret=(reglage("alexa.otp_secret", "") or ""))
-    cookies = login.load_cookie()
+    cookies = await login.load_cookie()
     # login() réutilise le refresh_token / les cookies capturés par le proxy.
     await login.login(cookies=cookies)
     if await login.test_loggedin():
