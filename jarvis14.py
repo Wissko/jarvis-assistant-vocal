@@ -52,7 +52,7 @@ MODELE_WHISPER = config.reglage("whisper.modele", "medium")
 TAUX = 16000
 BLOC = 1280
 
-SEUIL_REVEIL = 0.5
+SEUIL_REVEIL = config.reglage("assistant.seuil_reveil", 0.5)   # sensibilite du mot d'activation
 SEUIL_INTERRUPTION = 0.7   # plus strict : le micro entend aussi l'enceinte
 SEUIL_PAROLE_SUR = 0.025
 BLOCS_AVANT_VERIF = 5      # 5 x 80 ms = 0,4 s de parole continue

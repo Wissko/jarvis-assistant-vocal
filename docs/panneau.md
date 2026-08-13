@@ -31,7 +31,24 @@ danger (choix de modèle, modèle d'Hermes) — **jamais une règle de sécurit�
   **Hermes** — affiché et changeable en un clic (écrit dans `config.yaml`, et pour
   Hermes via `hermes config set model.default`). **Redémarre** le composant après.
 
-## 2. Page État (le `status-hermes.ps1` en visuel)
+## 2. Page Réglages (voix, audio, mot d'activation)
+
+Les réglages du quotidien, écrits dans `config.yaml` (**redémarre Jarvis** pour les
+appliquer). Écriture **whitelistée** : seules ces clés sont modifiables depuis le
+panneau — jamais une clé/secret (`_CLES_REGLABLES` dans `core/panneau.py`).
+
+- **Mode de routage** : `local` (tout sur ta machine, gratuit/privé) vs `cloud`
+  (Claude, plus fin, payant) → `mode`. Le *modèle précis* reste dans l'onglet Modèles.
+- **Audio** : **micro** (`audio.micro`) et **haut-parleur** (`audio.haut_parleur`,
+  « défaut » = sortie Windows) — listés en direct via `sounddevice.query_devices()`.
+- **Voix & écoute** : **personnalité** (`assistant.personnalite`) et **durée
+  d'écoute enchaînée** (`assistant.duree_suite`, secondes où Jarvis continue
+  d'écouter après une réponse sans redire le mot d'activation).
+- **Mot d'activation** : la phrase est fixe (« Hey Jarvis », modèle openWakeWord
+  embarqué) ; **sensibilité** réglable (`assistant.seuil_reveil` : bas = déclenche
+  facilement, haut = strict).
+
+## 3. Page État (le `status-hermes.ps1` en visuel)
 
 La chaîne complète **UP / DOWN** : serveur Jarvis, serveur MCP, tunnel ngrok,
 gateway Hermes, Docker, et la **connexion MCP Hermes → Jarvis**. Bouton
@@ -57,7 +74,7 @@ tâches kanban en cours — via le CLI `hermes` (`cron list` / `cron runs` /
 `kanban list`). *(Les commandes sont lancées en UTF-8 : la sortie d'Hermes
 contient cadres et emoji.)*
 
-## 3. Page Permissions (niveaux N1/N2/N3 — N8)
+## 4. Page Permissions (niveaux N1/N2/N3 — N8)
 
 Une seule vue = tout le **périmètre de sécurité**, avec le **niveau de permission**
 de chaque outil :

@@ -60,6 +60,7 @@ assistant:
                                # (modifiable a la voix : "passe en mode neutre")
   scene_extinction: "off"      # scene lumieres jouee AVANT d'eteindre le PC ("eteins le PC")
   delai_extinction: 30         # secondes avant l'arret (annulable : "annule l'extinction")
+  seuil_reveil: 0.5            # sensibilite du mot d'activation (0.3 = facile, 0.7 = strict)
 
 obs:                           # OBS Studio 28+ -> Outils -> Parametres du serveur WebSocket
   host: "localhost"

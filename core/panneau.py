@@ -358,6 +358,64 @@ def _definir_actif(backend, modele):
     return {"ok": False, "message": f"Backend inconnu : {backend}."}
 
 
+# ==================================================================== reglages
+
+# Clés éditables depuis le panneau (whitelist stricte : jamais de secret/clé).
+_CLES_REGLABLES = {
+    "mode": "str", "audio.micro": "int", "audio.haut_parleur": "nint",
+    "assistant.personnalite": "str", "assistant.duree_suite": "int",
+    "assistant.seuil_reveil": "float",
+}
+
+
+def _audio_devices():
+    try:
+        import sounddevice as sd
+        entrees, sorties = [], []
+        for i, d in enumerate(sd.query_devices()):
+            if d.get("max_input_channels", 0) > 0:
+                entrees.append({"index": i, "nom": d.get("name", "")})
+            if d.get("max_output_channels", 0) > 0:
+                sorties.append({"index": i, "nom": d.get("name", "")})
+        return entrees, sorties
+    except Exception:
+        return [], []
+
+
+def _reglages():
+    entrees, sorties = _audio_devices()
+    return {
+        "mode": reglage("mode", "cloud"),
+        "micro": reglage("audio.micro", 1),
+        "haut_parleur": reglage("audio.haut_parleur", None),
+        "personnalite": reglage("assistant.personnalite", "jarvis_sarcastique"),
+        "duree_suite": reglage("assistant.duree_suite", 10),
+        "seuil_reveil": reglage("assistant.seuil_reveil", 0.5),
+        "entrees": entrees, "sorties": sorties,
+        "personnalites": ["jarvis_sarcastique", "neutre", "concis"],
+    }
+
+
+def _definir_reglage(cle, valeur):
+    from core.config import definir
+    typ = _CLES_REGLABLES.get(cle)
+    if typ is None:
+        return {"ok": False, "message": "Réglage non autorisé."}
+    try:
+        if typ == "nint":
+            valeur = None if valeur in (None, "", "defaut", "null") else int(valeur)
+        elif typ == "int":
+            valeur = int(valeur)
+        elif typ == "float":
+            valeur = float(valeur)
+        else:
+            valeur = str(valeur)
+        definir(cle, valeur)
+        return {"ok": True, "message": "Enregistré. Redémarre Jarvis pour l'appliquer."}
+    except Exception as e:
+        return {"ok": False, "message": str(e)[:120]}
+
+
 # ==================================================================== etat
 
 def _port_listen(port):
@@ -651,6 +709,10 @@ def monter_routes(app):
     def api_pull_status(request: Request, nom: str = ""):
         return garde(request) or _PULLS.get(nom, {"statut": "inconnu", "pct": 0, "message": ""})
 
+    @app.get("/api/panneau/reglages")
+    def api_reglages(request: Request):
+        return garde(request) or _reglages()
+
     # -- ecriture (sans danger : modeles + reconnexion) --
     async def _corps(request):
         try:
@@ -700,6 +762,13 @@ def monter_routes(app):
             return r
         d = await _corps(request)
         return _definir_actif(d.get("backend"), str(d.get("modele", "")).strip())
+
+    @app.post("/api/panneau/reglage")
+    async def api_reglage(request: Request):
+        if (r := garde(request)):
+            return r
+        d = await _corps(request)
+        return _definir_reglage(str(d.get("cle", "")).strip(), d.get("valeur"))
 
     @app.post("/api/panneau/reconnecter-mcp")
     def api_reco(request: Request):
