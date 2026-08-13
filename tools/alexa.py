@@ -76,7 +76,8 @@ async def _assurer_login():
     login = AlexaLogin(
         url=reglage("alexa.url", "amazon.fr"),
         email=reglage("alexa.email", ""), password=reglage("alexa.password", ""),
-        outputpath=_cookie_path, otp_secret=(reglage("alexa.otp_secret", "") or ""))
+        outputpath=_cookie_path, otp_secret=(reglage("alexa.otp_secret", "") or ""),
+        oauth_login=False)
     cookies = login.load_cookie()
     if cookies and await login.test_loggedin(cookies):
         _LOGIN = login
