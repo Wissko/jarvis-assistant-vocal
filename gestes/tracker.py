@@ -60,7 +60,9 @@ def doigts_tendus(lm):
 
 
 def est_main_ouverte(lm):
-    return doigts_tendus(lm) >= 4 and pouce_ouvert(lm)
+    # 4 doigts tendus (index..auriculaire) suffisent : la detection du pouce ecarte
+    # est trop variable selon la main/l'angle pour etre exigee.
+    return doigts_tendus(lm) >= 4
 
 
 def est_poing(lm):
