@@ -279,6 +279,9 @@ finances:                      # transactions (import CSV, puis PSD2) ; docs/coc
   dossier_csv: "finances/releves"   # depose ton export bancaire CSV ici -> "importe mon releve"
   taux_usd_eur: 0.92           # conversion $ -> € pour la detection d'abonnements par mail
 
+amaran:                        # lumieres video amaran (BLE mesh via ESP32) ; docs/lumieres_video.md
+  url: ""                      # http://<ip-esp32>:2708 (firmware wesbos/amaran-BLE-control) ; vide = desactive
+
 overlay:                       # mini-fenetre qui affiche a l'ecrit ce que Jarvis dit ; docs/overlay.md
   actif: true                  # afficher l'overlay (Windows uniquement ; sinon ignore)
   ecran: 1                     # moniteur cible (0 = principal, 1 = 2e ecran...)
