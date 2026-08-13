@@ -55,6 +55,11 @@ def app():
         except Exception:
             LOG.exception("montage des routes gestes")
         try:
+            from core.cockpit import monter_routes as monter_cockpit
+            monter_cockpit(_APP)                  # /cockpit + /api/cockpit/* (LOCAL uniquement)
+        except Exception:
+            LOG.exception("montage du cockpit")
+        try:
             from tools.appel_direct import monter_ws
             monter_ws(_APP)                        # /stream (Twilio Media Streams)
         except Exception:

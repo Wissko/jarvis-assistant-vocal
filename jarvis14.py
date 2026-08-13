@@ -1014,9 +1014,16 @@ def main():
 
     # Serveur web unifie (pont iPhone + webhook Twilio + panneau + gestes en loopback).
     if (config.reglage("serveur.actif", False) or config.reglage("pont_iphone.actif", False)
-            or config.reglage("gestes.actif", False)):
+            or config.reglage("gestes.actif", False) or config.reglage("cockpit.actif", False)):
         from core.serveur import demarrer as demarrer_serveur_web
         demarrer_serveur_web()
+        # Cockpit : ouvre l'app web en fenetre dediee (--app) sur l'ecran choisi.
+        if config.reglage("cockpit.actif", False):
+            try:
+                from core import cockpit
+                threading.Thread(target=cockpit.ouvrir_fenetre, daemon=True).start()
+            except Exception:
+                LOG.exception("cockpit: ouverture fenetre")
 
     # Controle par gestes (webcam, sous-process isole 3.11) : hooks + demarrage optionnel.
     try:

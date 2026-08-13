@@ -41,3 +41,7 @@ gestes/calibration.json
 # Musique : venv isole (Python 3.12 + shazamio) et captures audio temporaires.
 musique/.venv-shazam/
 musique/captures/
+
+# Cockpit : donnees financieres PERSO (tout le dossier sauf l'exemple versionne).
+finances/*
+!finances/abonnements.example.yaml

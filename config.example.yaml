@@ -269,6 +269,12 @@ spotify:                       # ajouter les musiques reconnues a une playlist ;
   auto_ajout: false            # true = ajoute AUTOMATIQUEMENT chaque musique reconnue
   # Connexion une fois : python scripts/spotify_login.py (refresh_token dans logs/spotify/)
 
+cockpit:                       # tableau de bord perso (app web locale) ; docs/cockpit.md
+  actif: false                 # ouvrir le cockpit au demarrage (fenetre app --app)
+  ecran: 0                     # ecran cible (0 = principal, 1 = 2e ecran...)
+  navigateur: ""               # chemin chrome/edge ; vide = auto-detection
+  # Donnees 100% locales dans finances/ (gitignore). Copie finances/abonnements.example.yaml
+
 overlay:                       # mini-fenetre qui affiche a l'ecrit ce que Jarvis dit ; docs/overlay.md
   actif: true                  # afficher l'overlay (Windows uniquement ; sinon ignore)
   ecran: 1                     # moniteur cible (0 = principal, 1 = 2e ecran...)
