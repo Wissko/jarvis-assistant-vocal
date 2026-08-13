@@ -28,7 +28,11 @@ def _dossier():
 
 
 def _cookie_path(fichier):
-    return str(_dossier() / fichier)
+    # alexapy écrit dans un sous-dossier « .storage/… » : créer le parent, sinon
+    # la sauvegarde du cookie échoue en silence (OSError catchée par alexapy).
+    p = _dossier() / fichier
+    p.parent.mkdir(parents=True, exist_ok=True)
+    return str(p)
 
 
 def _activer_debug():
@@ -69,28 +73,37 @@ async def main():
             if (login.status or {}).get("login_successful"):
                 connecte = True
                 break
-            # Toutes les ~3 s, teste aussi la session directement (le proxy peut avoir
-            # capturé le cookie sans poser le drapeau).
-            if i % 3 == 0:
+            # Toutes les ~4 s : validation RÉELLE de la session (vraie requête Alexa).
+            if i and i % 4 == 0:
                 try:
+                    # rebuild_session=False : ne pas recréer la session (garde les
+                    # cookies injectés par le proxy).
                     if await login.test_loggedin(rebuild_session=False):
                         connecte = True
                         break
                 except Exception:
                     pass
             await asyncio.sleep(1)
-        if connecte:
-            try:
-                await login.save_cookiefile()
-            except Exception:
-                pass
-            print("\n✅ Connecté à Alexa ! Cookie sauvegardé dans", _dossier())
-            print("   Redémarre Jarvis, puis dis « mes appareils Alexa ».")
-        else:
+
+        if not connecte:
             print("\n⏱ Délai dépassé sans détecter la connexion.")
             print("   Si le navigateur te dit pourtant que tu es connecté, relance ce")
-            print("   script (la détection est plus robuste), ou envoie-moi la fin de")
-            print("   logs/alexa/login-debug.log.")
+            print("   script, ou envoie-moi la fin de logs/alexa/login-debug.log.")
+            return
+
+        # Persiste explicitement : finalize_login() pose le drapeau ET sauve le cookie.
+        # (Le proxy ne l'appelle pas toujours de lui-même.)
+        if not (login.status or {}).get("login_successful"):
+            await login.finalize_login()
+
+        saved = await login.load_cookie()
+        if saved:
+            print("\n✅ Connecté à Alexa ! Cookie sauvegardé (", len(saved), "éléments) dans",
+                  _dossier())
+            print("   Redémarre Jarvis, puis dis « mes appareils Alexa ».")
+        else:
+            print("\n⚠️ Connecté, mais le cookie n'a pas pu être sauvegardé.")
+            print("   Envoie-moi la fin de logs/alexa/login-debug.log.")
     except KeyboardInterrupt:
         print("\nAnnulé.")
     finally:

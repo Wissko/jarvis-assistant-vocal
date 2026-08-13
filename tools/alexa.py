@@ -59,8 +59,9 @@ def _msg_config():
 
 def _cookie_path(fichier):
     d = _RACINE / (reglage("alexa.dossier", "logs/alexa"))
-    d.mkdir(parents=True, exist_ok=True)
-    return str(d / fichier)
+    p = d / fichier
+    p.parent.mkdir(parents=True, exist_ok=True)   # crée « .storage/ » si besoin
+    return str(p)
 
 
 async def _assurer_login():
