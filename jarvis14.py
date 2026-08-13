@@ -159,6 +159,8 @@ _PROCESSUS_PAROLE = None
 _INTERRUPTION = threading.Event()
 _PARLE = threading.Event()   # vrai UNIQUEMENT pendant que Jarvis joue de l'audio :
                              # c'est la seule fenetre ou on ecoute une interruption.
+_CAPTURE_MUSIQUE = threading.Event()   # vrai pendant la capture Shazam : la boucle de
+                                       # surveillance lache alors flux (le micro est pris).
 
 
 def couper_parole():
@@ -678,9 +680,18 @@ def repondre_en_ecoutant(historique, flux, reveil, whisper):
     derniere_verif = 0.0
 
     while thread.is_alive():
+        # Pendant une capture musicale, l'outil prend le micro (flux stoppe) : on ne
+        # lit pas flux (sinon read leve), mais on RESTE dans la boucle pour ne pas
+        # declencher le join anticipe -> la reponse pourra bien etre dite ensuite.
+        if _CAPTURE_MUSIQUE.is_set():
+            time.sleep(0.05)
+            continue
         try:
             bloc, _ = flux.read(BLOC)
         except Exception:
+            if _CAPTURE_MUSIQUE.is_set():
+                time.sleep(0.05)
+                continue
             break
         bloc = bloc.flatten()
         _hud("niveau", _niv_hud(bloc))
@@ -939,6 +950,11 @@ def main():
         from tools import musique as _musique
 
         def _capturer_musique(secondes):
+            # Signale la capture : la boucle de surveillance (thread principal) lache
+            # flux AVANT qu'on le stoppe, sinon son flux.read planterait et couperait
+            # la reponse a mi-chemin.
+            _CAPTURE_MUSIQUE.set()
+            time.sleep(0.15)
             actif = flux.active
             try:
                 flux.stop()
@@ -956,6 +972,7 @@ def main():
                         flux.start()
                 except Exception:
                     pass
+                _CAPTURE_MUSIQUE.clear()
 
         _musique.definir_capture_micro(_capturer_musique)
     except Exception:
