@@ -98,6 +98,11 @@ class ElevenLabsProvider(ProviderTTS):
             decode = miniaudio.decode(
                 mp3, nchannels=1, sample_rate=24000,
                 output_format=miniaudio.SampleFormat.SIGNED16)
+            try:                                  # N12 : comptabilite voix (au caractere)
+                from core import budget
+                budget.enregistrer_tts(len(texte or ""))
+            except Exception:
+                pass
             return np.frombuffer(decode.samples, dtype=np.int16), 24000
         except Exception as e:
             print(f"  [ElevenLabs] indisponible ({e}), repli voix Windows.")
@@ -187,15 +192,22 @@ _TTS = None
 
 
 def tts():
-    """Provider TTS courant : cloud -> ElevenLabs ; local -> Piper ou Kokoro
-    (config voix_locale)."""
+    """Provider TTS courant : local -> Piper/Kokoro (config voix_locale) ;
+    hybride/qualite -> ElevenLabs."""
     global _TTS
     if _TTS is None:
-        mode = (reglage("mode", "cloud") or "cloud").lower()
-        if mode == "local":
+        from core.routage import mode_actuel
+        m = mode_actuel()
+        if m == "local":
             moteur = (reglage("voix_locale", "piper") or "piper").lower()
             _TTS = KokoroProvider() if moteur == "kokoro" else PiperProvider()
         else:
             _TTS = ElevenLabsProvider()
-        LOG.info("provider TTS : %s (mode %s)", _TTS.nom, mode)
+        LOG.info("provider TTS : %s (mode %s)", _TTS.nom, m)
     return _TTS
+
+
+def reinitialiser():
+    """Force la reconstruction du provider TTS au prochain tts() (switch de mode)."""
+    global _TTS
+    _TTS = None

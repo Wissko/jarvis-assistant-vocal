@@ -1,7 +1,12 @@
 # Configuration de Jarvis — copie ce fichier en config.yaml et mets tes valeurs.
 # config.yaml n'est PAS versionne (voir .gitignore) : tes secrets restent chez toi.
 
-mode: cloud                    # cloud = Claude + ElevenLabs ; local = Ollama + Piper (100% offline)
+mode: hybride                  # local | hybride | qualite  (voir docs/costs.md)
+                               #  local   = tout local (Ollama + Piper), rien ne sort
+                               #  hybride = DEFAUT : reflexes + vision en Claude eco ;
+                               #            taches de fond confiees a Hermes
+                               #  qualite = cloud partout, modele le plus fort
+                               # (l'ancien "cloud" reste accepte = hybride)
 
 ollama:                        # mode local : modele de langage local (http://localhost:11434)
   hote: "http://localhost:11434"
@@ -24,7 +29,8 @@ kokoro:                        # TTS local alternatif (voix FR unique ; uv add k
 
 anthropic:
   cle: "sk-ant-..."            # https://console.anthropic.com/ , section API keys
-  modele: "claude-haiku-4-5"
+  modele: "claude-haiku-4-5"          # mode hybride : modele economique (reflexes + vision)
+  modele_qualite: "claude-sonnet-4-5" # mode qualite : modele le plus fort
 
 elevenlabs:                    # facultatif ; sans cle, Jarvis garde la voix Windows
   cle: ""                      # https://elevenlabs.io , profil -> API key (commence par sk_)
@@ -207,11 +213,17 @@ securite:                      # niveaux de permission (N8) ; voir docs/panneau.
   toujours: []                 # outils N2 memorises "toujours autoriser" (revocables au panneau)
                                # rempli a la voix ("oui, toujours") ; un N3 n'y entre JAMAIS
 
-budget:                        # suivi de conso LLM (N9) ; page Etat du panneau
+budget:                        # suivi de conso + garde-fous (N12) ; voir docs/costs.md
   prix:                        # $/million de tokens (entree, sortie) ; cle = sous-chaine du modele
     haiku: [1.0, 5.0]          # tarifs API Anthropic (a ajuster si besoin)
     sonnet: [3.0, 15.0]
     opus: [5.0, 25.0]
+  prix_elevenlabs: 0.10        # $ / 1000 caracteres synthetises (estimation ; ajuste selon ton offre)
+  plafond_jour: null           # $/jour ; null = pas de plafond. Ex: 2.0
+  plafond_mois: null           # $/mois ; null = pas de plafond. Ex: 30.0
+  alerte_pct: 80               # alerte VOCALE a ce % du plafond (jour ET mois)
+  mode_normal: hybride         # mode a retrouver le lendemain apres une bascule auto en local
+  crons_critiques: []          # noms de crons Hermes JAMAIS suspendus au plafond (ex: ["reveil", "sauvegarde"])
 
 gestes:                        # controle par gestes de la main (webcam USB) ; voir docs/gestes.md
   actif: false                 # demarrer au lancement (sinon : "Jarvis, active les gestes")

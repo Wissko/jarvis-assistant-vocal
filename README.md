@@ -49,6 +49,7 @@ outils sûrs, écrit seulement des brouillons).
 - 🤝 **Délégation à Hermes** — confie la réflexion / recherche de fond à un agent délibératif **local** (doctrine : Jarvis tient les clés & le corps, Hermes pense) ([docs/hermes.md](docs/hermes.md))
 - 🧭 **Panneau web local** (`/panneau`) — modèles (LLM Ollama + Whisper, reco selon la VRAM), état de la chaîne, permissions — **accessible en local uniquement** ([docs/panneau.md](docs/panneau.md))
 - 🔐 **Sécurité graduée** — niveaux **N1/N2/N3** par outil, « toujours autoriser » révocable, budget LLM par fournisseur
+- 💸 **Routage & budgets** — 4 backends (local / hybride / qualité), suivi des coûts jour/mois par fournisseur (Claude, ElevenLabs, Twilio, Hermes), plafonds avec alerte vocale à 80 % et **bascule auto en local** au plafond ([docs/costs.md](docs/costs.md))
 - ⏻ **Extinction / réveil du PC** — extinction propre à la voix (confirmation N3, délai annulable) ; réveil par prise connectée ou Wake-on-LAN ([docs/wol.md](docs/wol.md))
 - ✋ **Gestes de la main** — pilote lumières / média / OBS d'un geste via webcam, **100 % local** (MediaPipe en sous-process isolé, aucune image ne sort) ([docs/gestes.md](docs/gestes.md))
 - 🎵 **Reconnaissance musicale** — « c'est quoi cette musique ? » (micro de la pièce **ou** son d'une vidéo/reel via loopback), à la demande uniquement ([docs/musique.md](docs/musique.md))
@@ -97,7 +98,7 @@ flowchart LR
 | Vie privée | appels API | **rien ne sort de la machine** |
 | Matériel | léger | GPU recommandé |
 
-Bascule en une ligne : `mode: cloud` ou `mode: local`. Voir [docs/local.md](docs/local.md)
+Bascule en une ligne : `mode: local`, `hybride` (défaut) ou `qualite` — ou à la voix « passe en local ». Voir [docs/local.md](docs/local.md) et [docs/costs.md](docs/costs.md)
 pour le bilan honnête de fiabilité (un modèle 7B gère bien les outils domotique/PC ;
 les **features à vision comme le navigateur & les réservations restent cloud recommandé**).
 
@@ -153,6 +154,7 @@ de contenus), `securite.toujours` (autorisations N2 mémorisées), `budget.prix`
 | Intégration | Guide |
 |---|---|
 | Cloud vs local, Ollama, Piper | [docs/local.md](docs/local.md) |
+| Routage 4 backends, coûts & budgets | [docs/costs.md](docs/costs.md) |
 | Philips Hue | [docs/hue.md](docs/hue.md) |
 | OBS | [docs/obs.md](docs/obs.md) |
 | Google Agenda + iCal | [docs/agenda.md](docs/agenda.md) |

@@ -62,10 +62,10 @@ class ProviderLLM:
 class ClaudeProvider(ProviderLLM):
     nom = "Claude"
 
-    def __init__(self):
+    def __init__(self, modele=None):
         import anthropic
         cle = reglage("anthropic.cle", "")
-        self.modele = reglage("anthropic.modele", "claude-haiku-4-5")
+        self.modele = modele or reglage("anthropic.modele", "claude-haiku-4-5")
         self.client = anthropic.Anthropic(api_key=cle) if cle else None
 
     def disponible(self):
@@ -209,10 +209,28 @@ _LLM = None
 
 
 def llm():
-    """Provider LLM courant (selon config.yaml mode: cloud|local)."""
+    """Provider LLM courant selon le mode (local | hybride | qualite).
+
+    - local   : Ollama.
+    - hybride : Claude, modele economique (anthropic.modele) — reflexes + vision.
+    - qualite : Claude, modele fort (anthropic.modele_qualite)."""
     global _LLM
     if _LLM is None:
-        mode = (reglage("mode", "cloud") or "cloud").lower()
-        _LLM = OllamaProvider() if mode == "local" else ClaudeProvider()
-        LOG.info("provider LLM : %s (mode %s)", _LLM.nom, mode)
+        from core.routage import mode_actuel
+        m = mode_actuel()
+        if m == "local":
+            _LLM = OllamaProvider()
+        elif m == "qualite":
+            _LLM = ClaudeProvider(reglage("anthropic.modele_qualite",
+                                          "claude-sonnet-4-5"))
+        else:                                    # hybride (defaut)
+            _LLM = ClaudeProvider(reglage("anthropic.modele", "claude-haiku-4-5"))
+        LOG.info("provider LLM : %s (mode %s, modele %s)",
+                 _LLM.nom, m, getattr(_LLM, "modele", "-"))
     return _LLM
+
+
+def reinitialiser():
+    """Force la reconstruction du provider au prochain llm() (apres un switch de mode)."""
+    global _LLM
+    _LLM = None
