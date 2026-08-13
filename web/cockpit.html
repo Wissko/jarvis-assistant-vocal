@@ -67,7 +67,16 @@
         Aucun abonnement. Crée <span class="badge">finances/abonnements.yaml</span>
         (copie <span class="badge">finances/abonnements.example.yaml</span>).</div>
     </div>
-    <div class="card"><h2>Par catégorie</h2><div id="categories"></div></div>
+    <div class="card"><h2>Par catégorie (abonnements)</h2><div id="categories"></div></div>
+
+    <div class="card"><h2>Ce mois — transactions</h2>
+      <div class="kpis" id="txkpis"><span class="muted">Importe un relevé : « Jarvis, importe mon relevé » (CSV dans finances/releves/).</span></div>
+      <div id="txcats" style="margin-top:10px"></div>
+    </div>
+    <div class="card"><h2>Abonnements repérés dans tes transactions</h2>
+      <div id="txrec" class="muted">—</div>
+      <small class="note">Un prélèvement qui revient chaque mois = un abonnement (montant et date exacts).</small>
+    </div>
   </section>
   <section id="energie" class="tab"><div class="placeholder">Volet Énergie — Phase 2 (Tapo P110 local, puis Linky).</div></section>
   <section id="reseaux" class="tab"><div class="placeholder">Volet Réseaux — Phase 3.</div></section>
@@ -121,8 +130,35 @@ async function charger(){
     <div class="barre"><i style="width:${Math.round(v/max*100)}%"></i></div>`).join('')
     || '<span class="muted">—</span>';
 }
-charger();
-setInterval(charger, 60000);
+
+async function chargerTx(){
+  const d=await api('/api/cockpit/transactions');
+  if(!d||!d.vue) return;
+  const v=d.vue;
+  const rien=(v.entrees===0&&v.sorties===0);
+  if(!rien){
+    $('#txkpis').innerHTML=`
+      <div class="kpi"><div class="v" style="color:#3ecf8e">${eur(v.entrees)}</div><div class="l">entrées (${v.mois})</div></div>
+      <div class="kpi"><div class="v" style="color:#ff8a8a">${eur(v.sorties)}</div><div class="l">sorties</div></div>
+      <div class="kpi"><div class="v">${eur(v.solde)}</div><div class="l">solde</div></div>`;
+    const cats=Object.entries(v.par_categorie||{}).filter(([,x])=>x.sorties>0);
+    const max=cats.length?Math.max(...cats.map(([,x])=>x.sorties)):1;
+    $('#txcats').innerHTML=cats.map(([c,x])=>`
+      <div class="cat"><span>${c}</span><span class="num">${eur(x.sorties)}</span></div>
+      <div class="barre"><i style="width:${Math.round(x.sorties/max*100)}%"></i></div>`).join('');
+  }
+  const rec=d.recurrents||[];
+  $('#txrec').innerHTML= rec.length? `<table><thead><tr><th>Prélèvement</th>
+    <th class="num">Montant</th><th>Fréquence</th><th></th></tr></thead><tbody>`
+    + rec.map(r=>`<tr><td>${r.service}</td><td class="num">${eur(r.montant)}</td>
+      <td class="muted">${r.mois} mois · ${r.occurrences}×</td>
+      <td>${r.stable?'<span class="badge">montant fixe</span>':'<span class="badge soon">variable</span>'}</td></tr>`).join('')
+    + '</tbody></table>' : '<span class="muted">Aucun (importe un relevé pour les détecter).</span>';
+}
+
+function tout(){ charger(); chargerTx(); }
+tout();
+setInterval(tout, 60000);
 </script>
 </body>
 </html>

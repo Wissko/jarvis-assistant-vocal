@@ -226,4 +226,12 @@ def monter_routes(app):
     def api_finances(request: Request):
         return garde(request) or _finances()
 
+    @app.get("/api/cockpit/transactions")
+    def api_transactions(request: Request, mois: str = ""):
+        if (r := garde(request)):
+            return r
+        from core import transactions as tx
+        return {"vue": tx.vue_mois(mois or None),
+                "recurrents": tx.abonnements_recurrents()}
+
     LOG.info("cockpit monte : /cockpit (local uniquement)")

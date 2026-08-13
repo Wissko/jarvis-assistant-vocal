@@ -9,14 +9,17 @@ intègre dans abonnements.yaml UNIQUEMENT sur confirmation. Tout reste local.
 N1 pour la détection (lecture + fichier de revue) ; N2 (confirmation) pour
 l'intégration. Non exposé au MCP. Voir docs/cockpit.md.
 """
+import csv
 import datetime as dt
 import html as _html
 import imaplib
+import io
 import re
 from pathlib import Path
 
 import yaml
 
+from core import transactions as tx
 from core.config import reglage
 from core.registre import outil
 
@@ -223,6 +226,131 @@ def _scanner(mois):
             imap.logout()
         except Exception:
             pass
+
+
+# ============================================================ import CSV bancaire
+
+def _colonne(entetes, *cands):
+    for i, e in enumerate(entetes):
+        en = re.sub(r"[^a-z]", "", e.lower())
+        for c in cands:
+            if c in en:
+                return i
+    return None
+
+
+def _nombre(s):
+    s = str(s or "").strip().replace(" ", "").replace(" ", "").replace(",", ".")
+    s = re.sub(r"[^0-9.\-]", "", s)
+    try:
+        return float(s) if s not in ("", "-", ".") else None
+    except ValueError:
+        return None
+
+
+def _date_iso(s):
+    s = str(s or "").strip()[:10]
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d/%m/%y", "%Y/%m/%d"):
+        try:
+            return dt.datetime.strptime(s, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def _parser_csv(texte):
+    """Détecte le séparateur + les colonnes (date, libellé, montant OU débit/crédit)."""
+    sep = ";" if texte[:2000].count(";") >= texte[:2000].count(",") else ","
+    lignes = list(csv.reader(io.StringIO(texte), delimiter=sep))
+    # trouve la ligne d'en-tête (celle qui contient 'date')
+    idx = next((i for i, l in enumerate(lignes[:15])
+                if any("date" in c.lower() for c in l)), 0)
+    entetes = lignes[idx]
+    ic = _colonne(entetes, "date")
+    il = _colonne(entetes, "libelle", "label", "description", "nature", "detail")
+    im = _colonne(entetes, "montant", "amount")
+    idb = _colonne(entetes, "debit")
+    icr = _colonne(entetes, "credit")
+    trans = []
+    for l in lignes[idx + 1:]:
+        if not l or (ic is not None and ic >= len(l)):
+            continue
+        date = _date_iso(l[ic]) if ic is not None else None
+        lib = l[il].strip() if (il is not None and il < len(l)) else ""
+        if im is not None and im < len(l):
+            montant = _nombre(l[im])
+        else:
+            deb = _nombre(l[idb]) if (idb is not None and idb < len(l)) else None
+            cred = _nombre(l[icr]) if (icr is not None and icr < len(l)) else None
+            montant = (cred or 0) - (deb or 0) if (deb or cred) else None
+        if date and lib and montant is not None:
+            trans.append({"date": date, "libelle": lib, "montant": round(montant, 2),
+                          "source": "csv"})
+    return trans
+
+
+@outil(
+    nom="importer_releve",
+    description="Importe un relevé bancaire CSV (export de ta banque) dans le cockpit : "
+                "dépenses/rentrées catégorisées, localement. Pour « importe mon relevé », "
+                "« ajoute mes transactions ». Sans chemin, prend le dernier CSV du dossier "
+                "surveillé (finances.dossier_csv).",
+    parametres={
+        "type": "object",
+        "properties": {
+            "chemin": {"type": "string", "description": "Chemin du fichier CSV "
+                       "(optionnel ; vide = le plus récent du dossier surveillé)."}
+        },
+    },
+    lent=True,
+    phrase_attente="J'importe ton relevé.",
+    mcp_expose=False,
+    affichage="toujours",
+)
+def importer_releve(chemin: str = "") -> str:
+    p = None
+    if chemin and chemin.strip():
+        p = Path(chemin.strip()).expanduser()
+    else:
+        dossier = _RACINE / reglage("finances.dossier_csv", "finances/releves")
+        csvs = sorted(dossier.glob("*.csv"), key=lambda x: x.stat().st_mtime) \
+            if dossier.exists() else []
+        p = csvs[-1] if csvs else None
+    if not p or not p.exists():
+        return ("Je n'ai pas trouvé de CSV. Dépose ton export bancaire dans "
+                "finances/releves/, ou précise le chemin.")
+    try:
+        texte = p.read_text(encoding="utf-8-sig", errors="replace")
+        trans = _parser_csv(texte)
+    except Exception as e:
+        return f"Lecture du CSV impossible ({str(e)[:100]})."
+    if not trans:
+        return "Aucune transaction lisible dans ce fichier (colonnes date/libellé/montant ?)."
+    n = tx.ajouter(trans)
+    v = tx.vue_mois()
+    return (f"Importé : {n} nouvelles transactions sur {len(trans)} lues. Ce mois : "
+            f"{v['sorties']:.0f} € de sorties, {v['entrees']:.0f} € de rentrées "
+            f"(solde {v['solde']:+.0f} €).")
+
+
+@outil(
+    nom="corriger_categorie",
+    description="Corrige/mémorise la catégorie d'un type de transaction (retenu pour la "
+                "suite). Pour « range X en Y », « les paiements Truc c'est la catégorie "
+                "Machin ».",
+    parametres={
+        "type": "object",
+        "properties": {
+            "motif": {"type": "string", "description": "Mot-clé du libellé (ex. 'uber')."},
+            "categorie": {"type": "string", "description": "La catégorie à appliquer."},
+        },
+        "required": ["motif", "categorie"],
+    },
+    mcp_expose=False,
+)
+def corriger_categorie(motif: str, categorie: str) -> str:
+    tx.memoriser_regle(motif, categorie)
+    return f"C'est noté : « {motif} » ira dans « {categorie} » (rétroactif)."
 
 
 @outil(

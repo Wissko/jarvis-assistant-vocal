@@ -275,6 +275,10 @@ cockpit:                       # tableau de bord perso (app web locale) ; docs/c
   navigateur: ""               # chemin chrome/edge ; vide = auto-detection
   # Donnees 100% locales dans finances/ (gitignore). Copie finances/abonnements.example.yaml
 
+finances:                      # transactions (import CSV, puis PSD2) ; docs/cockpit.md
+  dossier_csv: "finances/releves"   # depose ton export bancaire CSV ici -> "importe mon releve"
+  taux_usd_eur: 0.92           # conversion $ -> € pour la detection d'abonnements par mail
+
 overlay:                       # mini-fenetre qui affiche a l'ecrit ce que Jarvis dit ; docs/overlay.md
   actif: true                  # afficher l'overlay (Windows uniquement ; sinon ignore)
   ecran: 1                     # moniteur cible (0 = principal, 1 = 2e ecran...)

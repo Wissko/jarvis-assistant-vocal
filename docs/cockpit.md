@@ -52,7 +52,34 @@ d'agrégation** — ça passe par ton Gmail déjà connecté (IMAP), 100 % local
 même les **abonnements Apple** (que le relevé bancaire regroupe en une seule ligne).
 C'est **heuristique** → d'où la revue avant intégration.
 
-*(Import CSV bancaire + dépenses/rentrées ponctuelles : Phase 1b suivante.)*
+### Transactions : import CSV (dispo) + PSD2 (à venir)
+
+Au-delà des abonnements, le cockpit suit tes **dépenses/rentrées** :
+
+- **Import CSV** (dispo) : dépose l'export de ta banque dans `finances/releves/` puis
+  « **Jarvis, importe mon relevé** » (`importer_releve`). Détection auto du séparateur
+  et des colonnes (date / libellé / montant, ou débit+crédit). Stocké dans
+  `finances/transactions.jsonl` (gitignoré).
+- **Catégorisation** : règles par défaut (Courses, Restauration, Transport, Énergie,
+  Abonnements…) + tes **corrections mémorisées** (« range Uber en Transport » →
+  `corriger_categorie`, **rétroactif**). Vue **mois** entrées/sorties par catégorie.
+- **Abonnements depuis les transactions** : un prélèvement qui **revient** chaque mois
+  = un abonnement, avec **montant et date exacts** (plus fiable que les mails). Affiché
+  dans le cockpit ; la détection par mail reste en complément.
+
+**Banque en automatique (PSD2)** — honnêteté : le service gratuit **GoCardless Bank
+Account Data (ex-Nordigen) a fermé ses inscriptions**. L'équivalent self-serve retenu
+est **Enable Banking** (PSD2, banques FR). Le flux : Jarvis génère un lien, **tu
+t'authentifies SUR LE SITE DE TA BANQUE** (SCA — jamais via Jarvis), un **token de
+lecture seule** revient et est stocké en config ; un cron quotidien synchronise les
+transactions en local. **Aucun mot de passe bancaire ne vit chez Jarvis.** Les
+consentements PSD2 **expirent** (~90-180 j) → alerte claire pour re-consentir, jamais
+de panne silencieuse. *(Connecteur Enable Banking : en cours — l'import CSV reste le
+fallback si le fournisseur tombe ou si tu révoques.)*
+
+> **Doctrine transactions** : `finances/` gitignoré, **jamais exposé au MCP**
+> (`mcp_expose=False`). Hermes ne reçoit que des **agrégats** (bilan mensuel), jamais
+> le détail des transactions.
 
 ## À venir (phases suivantes)
 
