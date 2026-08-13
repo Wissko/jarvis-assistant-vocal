@@ -27,7 +27,8 @@ tiers. La seule voie viable est **`alexapy`** : login sur ton compte Amazon (coo
 | `alexa_etat` | N1 | Liste les Echo + en ligne / hors ligne |
 | `alexa_annoncer` | N1 | Fait parler un Echo (TTS sur un appareil, ou annonce sur tous) |
 | `alexa_media` | N1 | play / pause / volume sur un Echo |
-| `alexa_routine` | **N2** | Déclenche une Routine par son énoncé *(confirmation — une routine peut être impactante)* |
+| `alexa_appareil` | N1 | **« allume la clim », « éteins la télé »** → déclenche la routine correspondante (retrouvée parmi les tiennes, tolérant accents/pluriels/synonymes tv↔télé) |
+| `alexa_routine` | **N2** | Déclenche une Routine par son énoncé exact *(confirmation — une routine peut être impactante)* |
 
 ---
 
@@ -83,10 +84,23 @@ pas par le proxy (choisis **« appli d'authentification »**). Au pire, désacti
 
 *(Port occupé ? change `alexa.proxy_port` dans `config.yaml`.)*
 
-### 4. Contrôler tes lumières via des Routines
-Dans l'app **Alexa → Routines → +** : crée une routine, déclencheur **« Quand vous
-dites… »** (ex. `lumière salon on`), action **« Maison connectée »** → allumer la
-lampe. Ensuite : **« Jarvis, lance la routine lumière salon on »**.
+### 4. Contrôler tes appareils (lumières, clim, TV…) via des Routines
+Dans l'app **Alexa → Plus → Routines → +** : crée une routine, **nomme-la** comme ce
+que tu diras (ex. `clim on`), déclencheur **« Quand vous dites… »** (`clim on`),
+action **« Maison connectée »** → l'appareil. Fais-en une pour `clim off`.
+
+Ensuite, **deux façons** de la déclencher :
+- **Naturel** : **« Jarvis, allume la clim »**, **« éteins la télé »**, **« allume
+  les lumières du salon »** → Jarvis retrouve la routine (`alexa_appareil`).
+- **Explicite** : **« Jarvis, lance la routine clim on »** (`alexa_routine`).
+
+> **⚠️ La routine doit exister** avec un nom qui matche. `alexapy` échoue **en
+> silence** si aucune routine ne correspond — Jarvis te le dit maintenant
+> honnêtement (« Aucune routine … ; tes routines : … ») au lieu de faire semblant.
+> **Convention conseillée** : nomme `<appareil> on` / `<appareil> off` en minuscules
+> et sans accents (`clim on`, `salon off`, `tele on`). Jarvis tolère les accents,
+> pluriels et synonymes courants (tv↔télé, lumière↔lampe), mais des noms simples
+> évitent tout raté.
 
 ---
 
