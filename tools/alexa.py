@@ -16,6 +16,7 @@ réutilisé ensuite. Credentials dans config.yaml (jamais en dur). Voir docs/ale
 Niveaux : etat/media/annoncer = N1 ; routine = N2 (une routine peut être impactante).
 """
 import asyncio
+import json
 import logging
 import threading
 from pathlib import Path
@@ -64,8 +65,38 @@ def _cookie_path(fichier):
     return str(p)
 
 
+# Tokens OAuth durables (refresh_token/mac_dms), sauvés par scripts/alexa_login.py.
+# C'est la voie réutilisable : le cookie seul ne réauthentifie pas l'API Alexa.
+_OAUTH_CLES = ("access_token", "refresh_token", "mac_dms", "expires_in")
+
+
+def _oauth_path():
+    d = _RACINE / (reglage("alexa.dossier", "logs/alexa")) / ".storage"
+    return d / f"alexa_media.{reglage('alexa.email', '')}.oauth.json"
+
+
+def _charger_oauth():
+    p = _oauth_path()
+    if p.exists():
+        try:
+            return json.loads(p.read_text(encoding="utf-8")) or {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _sauver_oauth(login):
+    try:
+        p = _oauth_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({k: getattr(login, k, None) for k in _OAUTH_CLES}),
+                     encoding="utf-8")
+    except Exception:
+        pass
+
+
 async def _assurer_login():
-    """Renvoie un AlexaLogin connecté (via le cookie sauvegardé). Lève sinon."""
+    """Renvoie un AlexaLogin connecté (via les tokens OAuth sauvés). Lève sinon."""
     global _LOGIN
     if _LOGIN is not None:
         try:
@@ -74,14 +105,17 @@ async def _assurer_login():
         except Exception:
             _LOGIN = None
     from alexapy import AlexaLogin
+    oauth = _charger_oauth()
     login = AlexaLogin(
         url=reglage("alexa.url", "amazon.fr"),
         email=reglage("alexa.email", ""), password=reglage("alexa.password", ""),
-        outputpath=_cookie_path, otp_secret=(reglage("alexa.otp_secret", "") or ""))
+        outputpath=_cookie_path, otp_secret=(reglage("alexa.otp_secret", "") or ""),
+        oauth=oauth)
+    # login() : voie refresh_token en priorité (rebuild silencieux), cookie en repli.
     cookies = await login.load_cookie()
-    # login() réutilise le refresh_token / les cookies capturés par le proxy.
     await login.login(cookies=cookies)
     if await login.test_loggedin():
+        _sauver_oauth(login)   # persiste le token éventuellement rafraîchi
         _LOGIN = login
         return login
     raise RuntimeError("Connexion Alexa requise : lance « python scripts/alexa_login.py ».")

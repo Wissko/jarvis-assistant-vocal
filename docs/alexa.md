@@ -59,9 +59,27 @@ uv run python scripts/alexa_login.py
 ```
 Le script affiche une adresse **`http://127.0.0.1:3000`** → **ouvre-la dans ton
 navigateur, sur ce PC**. Connecte-toi à Amazon comme d'habitude (email/mot de passe
-**pré-remplis**, puis **captcha / 2FA** dans le navigateur). Dès que c'est validé, le
-script affiche **« ✅ Connecté »** et **sauvegarde le cookie** (dans `logs/alexa/`,
-gitignoré). Redémarre Jarvis : **« Jarvis, mes appareils Alexa »**.
+**pré-remplis**, puis **captcha / 2FA** dans le navigateur). **Va jusqu'à la page
+« Successfully logged in »** : c'est ce moment qui capture la session. Le script
+enregistre alors l'appareil et **sauvegarde les tokens OAuth durables**
+(`refresh_token`, dans `logs/alexa/.storage/`, gitignoré), puis **vérifie** qu'une
+session neuve fonctionne. Redémarre Jarvis : **« Jarvis, mes appareils Alexa »**.
+
+> **Pourquoi OAuth et pas juste un cookie ?** Le cookie seul ne réauthentifie pas
+> l'API Alexa au redémarrage. La voie réutilisable est le **`refresh_token`**
+> (obtenu par `get_tokens()` après login) : Jarvis reconstruit une session neuve à
+> chaque démarrage sans re-login. C'est ce que le script sauve et réinjecte.
+
+Vérifier l'état **sans se reconnecter** :
+```bash
+uv run python scripts/alexa_login.py --check   # rejoue le vrai chemin runtime + liste les Echo
+uv run python scripts/alexa_login.py --code    # un code TOTP frais, à taper si l'auto-remplissage rate
+```
+
+**2FA qui boucle sur la connexion ?** Deux causes traitées par le script : le code
+TOTP figé/périmé (régénéré à chaque page maintenant) et SMS/WhatsApp qui ne passe
+pas par le proxy (choisis **« appli d'authentification »**). Au pire, désactive la
+2FA le temps du login puis **réactive-la après** — le token capturé reste valide.
 
 *(Port occupé ? change `alexa.proxy_port` dans `config.yaml`.)*
 
@@ -85,7 +103,8 @@ lampe. Ensuite : **« Jarvis, lance la routine lumière salon on »**.
 
 ## Sécurité
 
-Identifiants **uniquement dans `config.yaml`** (gitignoré) ; le cookie de session est
-sous `logs/` (gitignoré). Traite `password` et `otp_secret` comme des secrets. Les
-outils sont **N1/N2** (jamais N3) et **non exposés au MCP** — Alexa n'est pas pilotable
-à distance ni par Hermes.
+Identifiants **uniquement dans `config.yaml`** (gitignoré) ; le cookie **et les
+tokens OAuth** de session (`logs/alexa/.storage/*.oauth.json`) sont sous `logs/`
+(gitignoré). Traite `password`, `otp_secret` **et le `refresh_token`** comme des
+secrets. Les outils sont **N1/N2** (jamais N3) et **non exposés au MCP** — Alexa
+n'est pas pilotable à distance ni par Hermes.
