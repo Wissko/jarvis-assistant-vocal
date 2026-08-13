@@ -15,7 +15,7 @@ class Outil:
     """Metadonnees + fonction d'un outil."""
 
     def __init__(self, fonction, nom, description, parametres, confirmation,
-                 lent, phrase_attente, annonce, mcp_expose):
+                 lent, phrase_attente, annonce, mcp_expose, affichage="auto"):
         self.fonction = fonction
         self.nom = nom
         self.description = description
@@ -25,22 +25,32 @@ class Outil:
         self.phrase_attente = phrase_attente  # phrase d'attente si lent
         self.annonce = annonce                # fn(args) -> phrase de confirmation
         self.mcp_expose = mcp_expose          # visible via le serveur MCP externe ?
+        self.affichage = affichage            # overlay : "toujours" | "jamais" | "auto"
 
 
 def outil(nom, description, parametres=None, confirmation=False, lent=False,
-          phrase_attente=None, annonce=None, mcp_expose=False):
+          phrase_attente=None, annonce=None, mcp_expose=False, affichage="auto"):
     """Decorateur : enregistre une fonction comme outil de l'assistant.
 
     mcp_expose : par securite, un outil n'est PAS expose au serveur MCP par
     defaut (un agent externe ne doit voir que ce qu'on autorise explicitement).
+    affichage : routage de l'overlay de reponses. "toujours" (musique, stats,
+    listes, minuteurs, retours Hermes), "jamais" (acquittement ephemere), ou
+    "auto" (defaut : heuristique cote core selon le contenu de la reponse).
     """
     def deco(fonction):
         _REGISTRE[nom] = Outil(
             fonction, nom, description,
             parametres or {"type": "object", "properties": {}},
-            confirmation, lent, phrase_attente, annonce, mcp_expose)
+            confirmation, lent, phrase_attente, annonce, mcp_expose, affichage)
         return fonction
     return deco
+
+
+def affichage(nom):
+    """Hint d'affichage overlay d'un outil : 'toujours' | 'jamais' | 'auto'."""
+    o = _REGISTRE.get(nom)
+    return getattr(o, "affichage", "auto") if o else "auto"
 
 
 def charger_outils():

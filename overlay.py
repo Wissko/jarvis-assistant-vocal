@@ -73,6 +73,24 @@ def masquer():
     _Q.put(("masquer", None))
 
 
+_DERNIERE = {"texte": "", "type": "reponse", "extra": {}}
+
+
+def memoriser(texte, type="reponse", extra=None):
+    """Mémorise la dernière réponse SANS l'afficher (pour la surcharge « affiche-le »)."""
+    _DERNIERE.update({"texte": str(texte or ""), "type": type, "extra": extra or {}})
+
+
+def reafficher():
+    """Réaffiche la dernière réponse mémorisée (surcharge vocale « affiche-le »)."""
+    if not _DERNIERE.get("texte"):
+        return False
+    _CFG["actif"] = True
+    _Q.put(("afficher", {"texte": _DERNIERE["texte"], "type": _DERNIERE["type"],
+                         "extra": _DERNIERE["extra"], "duree": None}))
+    return True
+
+
 def set_actif(actif):
     _CFG["actif"] = bool(actif)
     if not actif:

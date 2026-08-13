@@ -114,6 +114,11 @@ def deleguer_en_fond(tache: str, intro: str = "Hermes a termine. ",
             resume = confidentialite.filtrer(
                 _resume_vocal(resultat), max_car=int(reglage("hermes.resume_max", 500)))
             voix.parler(intro + resume)
+            try:                                  # retour Hermes aussi a l'ecran (overlay)
+                import overlay
+                overlay.afficher(resume, type="reponse")
+            except Exception:
+                pass
         except Exception as e:
             voix.parler("La delegation a Hermes a echoue. "
                         + confidentialite.filtrer(str(e), 120))

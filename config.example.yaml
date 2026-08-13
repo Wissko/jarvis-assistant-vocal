@@ -48,7 +48,11 @@ mail:                          # Gmail via IMAP/SMTP (facultatif)
 
 audio:
   micro: 1                     # index du micro (voir sounddevice.query_devices())
-  haut_parleur: null           # null = sortie par defaut de Windows
+  haut_parleur: null           # null = sortie par defaut de Windows (changeable a la voix)
+  sorties:                     # alias pour "passe sur le casque / les enceintes" (nom ou index)
+    casque: "Casque"           # sous-chaine du nom de l'appareil de sortie (ou un index)
+    enceintes: "Haut-parleurs"
+  raccourci_mute: "ctrl+alt+m" # raccourci clavier global : couper/reactiver le wake word ("" = off)
 
 whisper:
   modele: "medium"

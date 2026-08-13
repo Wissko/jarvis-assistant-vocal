@@ -41,6 +41,7 @@ def _eur(x):
     lent=True,
     phrase_attente="Je fais les comptes.",
     mcp_expose=True,
+    affichage="toujours",
 )
 def mon_budget() -> str:
     e = budget.etat()

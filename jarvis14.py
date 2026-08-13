@@ -45,6 +45,12 @@ MICRO = config.reglage("audio.micro", 1)
 # None = sortie audio par defaut de Windows (suit l'enceinte/casque actif).
 HAUT_PARLEUR = config.reglage("audio.haut_parleur", None)
 
+
+def _haut_parleur():
+    """Peripherique de sortie TTS COURANT (lu en direct : changeable a la voix via
+    l'outil sortie_audio -> config.definir). None = sortie par defaut de Windows."""
+    return config.reglage("audio.haut_parleur", None)
+
 # Le choix du modele LLM (Claude/Ollama) et de la voix (ElevenLabs/Piper) est gere
 # par les providers (core/llm.py, core/tts.py), selon config.yaml (mode: cloud|local).
 MODELE_WHISPER = config.reglage("whisper.modele", "medium")
@@ -120,18 +126,45 @@ _OUTILS_MUSIQUE = {"identifier_musique", "identifier_musique_fichier",
                    "derniere_musique"}
 
 
+_RE_NOMBRE = re.compile(r"\d[\d .,:h]*\d|\d")
+
+
+def _consultable(texte):
+    """Heuristique (mode 'auto') : la reponse contient-elle des donnees a CONSULTER
+    (=> fenetre + voix) ou est-ce un simple acquittement ephemere (=> voix seule) ?"""
+    t = (texte or "").strip()
+    if len(t) > 200:
+        return True
+    if "\n" in t:                              # liste / plusieurs lignes
+        return True
+    if len(_RE_NOMBRE.findall(t)) >= 2:        # plusieurs nombres (stats, prix, horaires)
+        return True
+    if "«" in t or '"' in t:                   # entite citee (titre, nom, lieu)
+        return True
+    return False
+
+
 def _afficher_overlay(texte):
-    """Pousse la reponse dans l'overlay visuel (carte selon le dernier outil)."""
+    """Route la reponse vers l'overlay selon un HINT d'outil (affichage: toujours/
+    jamais/auto) puis, en 'auto', une heuristique de contenu. Memorise toujours la
+    derniere reponse pour la surcharge vocale « affiche-le »."""
     global _DERNIER_OUTIL
-    if _overlay is None or not texte:
-        _DERNIER_OUTIL = None
-        return
-    typ = "musique" if _DERNIER_OUTIL in _OUTILS_MUSIQUE else "reponse"
+    outil_nom = _DERNIER_OUTIL
     _DERNIER_OUTIL = None
+    if _overlay is None or not texte:
+        return
+    typ = "musique" if outil_nom in _OUTILS_MUSIQUE else "reponse"
     try:
-        _overlay.afficher(texte, type=typ)
+        _overlay.memoriser(texte, typ)         # pour « affiche-le »
     except Exception:
         pass
+    hint = registre.affichage(outil_nom) if outil_nom else "auto"
+    montrer = (hint == "toujours") or (hint != "jamais" and _consultable(texte))
+    if montrer:
+        try:
+            _overlay.afficher(texte, type=typ)
+        except Exception:
+            pass
 
 
 def _hud(methode, *args):
@@ -166,14 +199,14 @@ def jouer(chemin_wav):
         taux = f.getframerate()
         donnees = f.readframes(f.getnframes())
     audio = np.frombuffer(donnees, dtype=np.int16)
-    sd.play(audio, samplerate=taux, device=HAUT_PARLEUR)
+    sd.play(audio, samplerate=taux, device=_haut_parleur())
     sd.wait()
 
 
 def bip(frequence=880, duree=0.12):
     t = np.linspace(0, duree, int(TAUX * duree), endpoint=False)
     onde = (0.25 * np.sin(2 * np.pi * frequence * t)).astype(np.float32)
-    sd.play(onde, samplerate=TAUX, device=HAUT_PARLEUR)
+    sd.play(onde, samplerate=TAUX, device=_haut_parleur())
     sd.wait()
 
 
@@ -183,6 +216,24 @@ _PARLE = threading.Event()   # vrai UNIQUEMENT pendant que Jarvis joue de l'audi
                              # c'est la seule fenetre ou on ecoute une interruption.
 _CAPTURE_MUSIQUE = threading.Event()   # vrai pendant la capture Shazam : la boucle de
                                        # surveillance lache alors flux (le micro est pris).
+_MICRO_MUET = threading.Event()        # vrai = wake word coupe (mute micro) : stream/call.
+
+
+def basculer_micro(force=None):
+    """Coupe/reactive l'ecoute du mot d'activation. force=True mute, False reactive,
+    None bascule. Feedback bip + HUD. Renvoie True si desormais muet."""
+    if force is True or (force is None and not _MICRO_MUET.is_set()):
+        _MICRO_MUET.set()
+    else:
+        _MICRO_MUET.clear()
+    muet = _MICRO_MUET.is_set()
+    try:
+        bip(400 if muet else 900, 0.10)
+    except Exception:
+        pass
+    _hud("micro", muet)
+    print("  [micro] " + ("coupe (mute)" if muet else "reactive"))
+    return muet
 
 
 def couper_parole():
@@ -204,7 +255,7 @@ def _jouer_audio(audio, frequence):
     """Joue un tableau int16 mono sur le haut-parleur, interruptible."""
     if _INTERRUPTION.is_set():
         return
-    sd.play(audio, samplerate=frequence, device=HAUT_PARLEUR)
+    sd.play(audio, samplerate=frequence, device=_haut_parleur())
     while not _INTERRUPTION.is_set():
         courant = sd.get_stream()
         if courant is None or not courant.active:
@@ -892,6 +943,22 @@ def _installer_raccourci_gestes():
         LOG.exception("gestes: raccourci clavier")
 
 
+def _installer_raccourci_micro():
+    """Raccourci clavier global pour couper/reactiver le wake word (mute micro)."""
+    combo = config.reglage("audio.raccourci_mute", "ctrl+alt+m")
+    if not combo:
+        return
+    try:
+        import keyboard
+    except Exception:
+        return  # lib optionnelle
+    try:
+        keyboard.add_hotkey(combo, basculer_micro)
+        print(f"Raccourci mute micro : {combo}")
+    except Exception:
+        LOG.exception("micro: raccourci clavier")
+
+
 def main():
     print("Chargement des modeles...")
 
@@ -940,6 +1007,7 @@ def main():
         if config.reglage("gestes.actif", False):
             print(gestes.demarrer())
         _installer_raccourci_gestes()
+        _installer_raccourci_micro()
     except Exception:
         LOG.exception("gestes: initialisation")
 
@@ -1037,6 +1105,10 @@ def main():
                 bloc, _ = flux.read(BLOC)
                 bloc = bloc.flatten()
                 tampon.append(bloc)
+
+                if _MICRO_MUET.is_set():        # wake word coupe (raccourci mute)
+                    _hud("etat", "muet")
+                    continue
 
                 _hud("etat", "veille")
                 _hud("niveau", _niv_hud(bloc))

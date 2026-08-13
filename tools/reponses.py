@@ -42,6 +42,20 @@ def afficher_reponses(visible: bool = True) -> str:
 
 
 @outil(
+    nom="afficher_reponse",
+    description="Réaffiche MA DERNIÈRE réponse dans la fenêtre overlay (surcharge "
+                "ponctuelle). Pour « affiche-le », « montre-le à l'écran », « remets-le "
+                "en fenêtre », « affiche ça ».",
+    mcp_expose=False,
+)
+def afficher_reponse() -> str:
+    if _overlay is None:
+        return _indispo()
+    ok = _overlay.reafficher()
+    return "Je l'affiche." if ok else "Je n'ai pas de réponse récente à afficher."
+
+
+@outil(
     nom="mode_silencieux_visuel",
     description="Active/désactive le mode silencieux visuel : je réponds SANS parler, "
                 "la réponse s'affiche seulement dans l'overlay (pratique en call/stream). "

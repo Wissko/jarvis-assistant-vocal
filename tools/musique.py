@@ -189,6 +189,7 @@ def _capturer_et_reconnaitre(source, secondes):
         },
     },
     mcp_expose=False,       # capture micro/système : le micro reste local
+    affichage="toujours",   # overlay : titre/artiste toujours à l'écran
 )
 def identifier_musique(source: str = "micro", secondes: int = 8) -> str:
     return _capturer_et_reconnaitre(source, secondes)
@@ -210,6 +211,7 @@ def identifier_musique(source: str = "micro", secondes: int = 8) -> str:
     lent=True,
     phrase_attente="Je cherche le son de ce fichier.",
     mcp_expose=True,        # inoffensif : pas de micro, juste un fichier
+    affichage="toujours",
 )
 def identifier_musique_fichier(chemin: str) -> str:
     p = Path(chemin).expanduser()
@@ -225,6 +227,7 @@ def identifier_musique_fichier(chemin: str) -> str:
     description="Redonne la dernière musique reconnue (« c'était quoi la musique de "
                 "tout à l'heure ? »).",
     mcp_expose=False,
+    affichage="toujours",
 )
 def derniere_musique() -> str:
     if not _NOTES.exists():

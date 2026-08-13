@@ -22,6 +22,25 @@ L'overlay **n'interrompt jamais** ce que tu fais (jeu, montage, call) :
 > masquer tout overlay, quel qu'il soit. La plupart des jeux tournent en borderless
 > (donc OK) ; en cas de souci, passe le jeu en « fenêtré sans bordure ».
 
+## Quand la fenêtre s'affiche (routage automatique, pas de commande)
+
+Pas besoin de dire « affiche » : Jarvis décide **seul** si une réponse mérite la
+fenêtre, à deux niveaux.
+
+1. **Hint par outil** (décorateur `@outil(..., affichage=...)`) :
+   - `toujours` → musique, budget/stats, listes, minuteurs, **retours d'Hermes** ;
+   - `jamais` → acquittement d'action simple ;
+   - `auto` (défaut) → heuristique ci-dessous.
+2. **Heuristique de contenu** (mode `auto`, dans le core) : la fenêtre s'affiche si la
+   réponse est **consultable** — plus de ~200 caractères, une **liste** (multi-lignes),
+   **plusieurs nombres** (horaires, prix, stats), ou une **entité citée** (« titre »,
+   nom, lieu). Sinon (ex. « C'est fait. », « Il est 22h10. ») → **voix seule**.
+
+**Règle** : consultable → **fenêtre + voix** ; acquittement éphémère → **voix seule**.
+
+**Surcharge ponctuelle** : après une réponse, dis « **affiche-le** » (ou « montre-le
+à l'écran ») → `afficher_reponse` réaffiche la dernière réponse en fenêtre.
+
 ## Coût nul au repos
 
 Fenêtre native **tkinter** (aucun paquet à installer) pilotée en direct depuis
