@@ -51,6 +51,7 @@ outils sûrs, écrit seulement des brouillons).
 - 🔐 **Sécurité graduée** — niveaux **N1/N2/N3** par outil, « toujours autoriser » révocable, budget LLM par fournisseur
 - ⏻ **Extinction / réveil du PC** — extinction propre à la voix (confirmation N3, délai annulable) ; réveil par prise connectée ou Wake-on-LAN ([docs/wol.md](docs/wol.md))
 - ✋ **Gestes de la main** — pilote lumières / média / OBS d'un geste via webcam, **100 % local** (MediaPipe en sous-process isolé, aucune image ne sort) ([docs/gestes.md](docs/gestes.md))
+- 🎵 **Reconnaissance musicale** — « c'est quoi cette musique ? » (micro de la pièce **ou** son d'une vidéo/reel via loopback), à la demande uniquement ([docs/musique.md](docs/musique.md))
 - 🏠 **Google Home / Nest** — *(⚠️ expérimental)* liste des appareils Nest + état ([docs/google_home.md](docs/google_home.md))
 - 🔵 **Alexa / Echo** — *(via API non officielle)* annonces/TTS, média, et contrôle d'appareils via Routines (« allume la clim », « éteins la télé ») ([docs/alexa.md](docs/alexa.md))
 
@@ -168,6 +169,7 @@ de contenus), `securite.toujours` (autorisations N2 mémorisées), `budget.prix`
 | **Panneau web (modèles · état · permissions)** | [docs/panneau.md](docs/panneau.md) |
 | **Extinction / Wake-on-LAN** | [docs/wol.md](docs/wol.md) |
 | **Gestes de la main (webcam)** | [docs/gestes.md](docs/gestes.md) |
+| **Reconnaissance musicale (Shazam-like)** | [docs/musique.md](docs/musique.md) |
 | **Google Home / Nest** *(⚠️ expérimental)* | [docs/google_home.md](docs/google_home.md) |
 | **Alexa / Echo** *(via API non officielle)* | [docs/alexa.md](docs/alexa.md) |
 | **Latence perçue (UX)** | [docs/latency.md](docs/latency.md) |

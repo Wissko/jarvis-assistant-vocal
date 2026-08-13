@@ -241,6 +241,11 @@ gestes:                        # controle par gestes de la main (webcam USB) ; v
     swipe_droite:   { action: obs_scene, sens: suivante }
     swipe_gauche:   { action: obs_scene, sens: precedente }
 
+musique:                       # reconnaissance musicale (Shazam-like) ; voir docs/musique.md
+  secondes: 8                  # duree de capture par defaut (4-15). Aucune cle requise.
+  # Installe le venv isole une fois : python scripts/setup_musique.py
+  # (shazamio-core n'a pas de wheel Python 3.13 -> venv 3.12 dedie, comme les gestes)
+
 google_home:                   # EXPERIMENTAL (non teste) ; voir docs/google_home.md
   project_id:    ""            # ID du projet Device Access (SDM) ; vide = desactive
   client_id:     ""            # OAuth client (console.cloud.google.com)

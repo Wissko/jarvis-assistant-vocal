@@ -932,6 +932,35 @@ def main():
     )
     flux.start()
 
+    # Reconnaissance musicale : capture depuis le micro en SUSPENDANT proprement le
+    # wake word (micro partage). Un bip signale l'ecoute AVANT la capture, pour ne
+    # pas polluer l'empreinte envoyee a Shazam.
+    try:
+        from tools import musique as _musique
+
+        def _capturer_musique(secondes):
+            actif = flux.active
+            try:
+                flux.stop()
+            except Exception:
+                pass
+            try:
+                bip(880, 0.12)
+                audio = sd.rec(int(secondes * TAUX), samplerate=TAUX, channels=1,
+                               dtype="float32", device=MICRO)
+                sd.wait()
+                return audio.reshape(-1), TAUX
+            finally:
+                try:
+                    if actif:
+                        flux.start()
+                except Exception:
+                    pass
+
+        _musique.definir_capture_micro(_capturer_musique)
+    except Exception:
+        LOG.exception("musique: hook capture micro")
+
     print('\nPret. Dites "Hey Jarvis". Ctrl+C pour quitter.\n')
     print('Vous pouvez le couper en redisant "Hey Jarvis" pendant qu\'il parle.\n')
 

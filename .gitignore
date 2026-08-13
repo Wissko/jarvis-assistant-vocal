@@ -37,3 +37,7 @@ voix/
 gestes/.venv-tracker/
 gestes/models/
 gestes/calibration.json
+
+# Musique : venv isole (Python 3.12 + shazamio) et captures audio temporaires.
+musique/.venv-shazam/
+musique/captures/
