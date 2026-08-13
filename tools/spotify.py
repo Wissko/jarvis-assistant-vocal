@@ -200,5 +200,13 @@ def ajouter_a_playlist(titre: str = "", artiste: str = "") -> str:
         titre, artiste = derniere
     try:
         return _ajouter_titre(titre, artiste)
+    except requests.HTTPError as e:
+        code = getattr(e.response, "status_code", 0)
+        if code == 403:
+            return ("Spotify refuse l'accès (403) : soit le droit d'écriture des "
+                    "playlists n'est pas accordé, soit l'app est en mode développement "
+                    "avec un autre compte. Relance « python scripts/spotify_login.py » "
+                    "et clique bien « Agree » sur l'écran des permissions.")
+        return f"Spotify a échoué ({str(e)[:120]})."
     except Exception as e:
         return f"Spotify a échoué ({str(e)[:120]})."

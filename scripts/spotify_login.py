@@ -75,7 +75,8 @@ def main():
 
     url = "https://accounts.spotify.com/authorize?" + urllib.parse.urlencode({
         "client_id": cid, "response_type": "code", "redirect_uri": REDIRECT,
-        "scope": SCOPES})
+        "scope": SCOPES,
+        "show_dialog": "true"})   # force le ré-consentement (sinon scopes d'une auth précédente)
     print("\nOuvre cette adresse et autorise (elle devrait s'ouvrir seule) :\n ", url)
     try:
         webbrowser.open(url)
@@ -103,7 +104,13 @@ def main():
     data = r.json()
     (_dossier() / "token.json").write_text(json.dumps({
         "refresh_token": data.get("refresh_token")}), encoding="utf-8")
+    scopes = data.get("scope", "")
     print("\n✅ Spotify connecté, refresh_token sauvegardé dans", _dossier())
+    print("   Permissions accordées :", scopes or "(aucune ?!)")
+    if "playlist-modify" not in scopes:
+        print("   ⚠️ Le droit d'écriture des playlists (playlist-modify) N'EST PAS "
+              "accordé — l'ajout échouera (403). Refais l'autorisation en cliquant "
+              "bien « Agree » sur l'écran qui liste les permissions.")
     print("   Redémarre Jarvis. Dis « ajoute-la à ma playlist », ou active "
           "spotify.auto_ajout: true pour l'ajout automatique.")
 
