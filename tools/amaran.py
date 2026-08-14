@@ -87,12 +87,12 @@ def controler_amaran(etat: str = "", intensite: int = None,
         bri = max(0, min(100, int(intensite))) if intensite is not None else 80
         coul = sans_accents(couleur.lower()).strip()
         if coul and coul in _COULEURS and _COULEURS[coul] is not None:
-            _post("/lights/all/hsi", {"brightness": bri, "hue": _COULEURS[coul],
-                                      "saturation": 100})
+            _post("/lights/all/hsi", {"intensity": bri, "hue": _COULEURS[coul],
+                                      "sat": 100})
             faits.append(f"couleur {couleur}")
         elif temperature is not None:
             k = max(2500, min(7500, int(temperature)))
-            _post("/lights/all/cct", {"brightness": bri, "kelvin": k, "gm": 0})
+            _post("/lights/all/cct", {"intensity": bri, "kelvin": k, "gm": 0})
             faits.append(f"{k} kelvin")
         elif intensite is not None:
             _post("/lights/all/brightness", {"value": bri})

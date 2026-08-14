@@ -205,11 +205,13 @@ def boucle(conf, calibrer=False):
     token = conf.get("token", "")
     modele = conf.get("model_path", "gestes/models/hand_landmarker.task")
 
+    conf_det = float(conf.get("confiance_detection", 0.7))
+    conf_track = float(conf.get("confiance_suivi", 0.7))
     base = mp_python.BaseOptions(model_asset_path=modele)
     options = mp_vision.HandLandmarkerOptions(
         base_options=base, num_hands=1,
         running_mode=mp_vision.RunningMode.VIDEO,
-        min_hand_detection_confidence=0.6, min_tracking_confidence=0.6)
+        min_hand_detection_confidence=conf_det, min_tracking_confidence=conf_track)
     landmarker = mp_vision.HandLandmarker.create_from_options(options)
 
     cap = cv2.VideoCapture(device, cv2.CAP_DSHOW)

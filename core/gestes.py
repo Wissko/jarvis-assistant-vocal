@@ -80,6 +80,8 @@ def _conf_tracker(token):
         "largeur": int(reglage("gestes.largeur", 640)),
         "hauteur": int(reglage("gestes.hauteur", 480)),
         "seuils": _seuils(),
+        "confiance_detection": float(reglage("gestes.confiance_detection", 0.7)),
+        "confiance_suivi": float(reglage("gestes.confiance_suivi", 0.7)),
         "armement": reglage("gestes.armement", {"actif": False}) or {"actif": False},
         "url": f"http://127.0.0.1:{port}/api/gestes",
         "token": token,
