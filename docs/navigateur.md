@@ -9,8 +9,12 @@ profil Playwright separe. Ici, c'est ton navigateur.
 
 ## Lancer « Chrome + Jarvis »
 
-Double-clique **`Chrome + Jarvis.bat`** (a la racine du projet). Il ouvre Chrome
-avec le port de debug que Jarvis utilise.
+**Automatique** : depuis peu, si tu demandes une action navigateur (« ouvre
+YouTube ») **sans** avoir lance Chrome, Jarvis le **lance tout seul** (profil dedie
+« ChromeJarvis », port de debug) puis se connecte. Plus besoin du raccourci a la main.
+
+**Manuel (optionnel)** : tu peux toujours double-cliquer **`Chrome + Jarvis.bat`**
+(a la racine du projet) pour l'ouvrir a l'avance.
 
 > **Pourquoi un profil dedie ?** Depuis Chrome 136 (tu as la 150), Google
 > **interdit** le debug a distance sur le profil par defaut, pour la securite.

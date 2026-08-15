@@ -15,6 +15,11 @@ SECURITE (ton Chrome = toutes tes sessions connectees) :
   - Fermer des onglets passe par une confirmation vocale (action destructive).
 """
 import logging
+import os
+import socket
+import subprocess
+import time
+from pathlib import Path
 from urllib.parse import urlparse, quote_plus
 
 from core.config import reglage
@@ -24,16 +29,85 @@ LOG = logging.getLogger("jarvis")
 
 _BROWSER = None   # navigateur Chrome connecte via CDP
 
-_MSG_ABSENT = ("Chrome n'est pas connecte. Lance-le via le raccourci "
-               "\"Chrome + Jarvis\" (il l'ouvre avec le port de debug).")
+_MSG_ABSENT = ("Je n'ai pas reussi a lancer Chrome connecte. Verifie que Google "
+               "Chrome est installe (ou renseigne navigateur.chrome_exe dans "
+               "config.yaml), ou lance le raccourci \"Chrome + Jarvis\".")
+
+
+def _chrome_exe():
+    """Chemin de chrome.exe (config, sinon emplacements standards Windows)."""
+    p = reglage("navigateur.chrome_exe", "")
+    if p and Path(p).exists():
+        return p
+    for base in (os.environ.get("ProgramFiles", r"C:\Program Files"),
+                 os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
+                 os.environ.get("LOCALAPPDATA", "")):
+        if not base:
+            continue
+        c = Path(base) / "Google" / "Chrome" / "Application" / "chrome.exe"
+        if c.exists():
+            return str(c)
+    return None
+
+
+def _port_ouvert(port):
+    s = socket.socket()
+    s.settimeout(0.5)
+    try:
+        return s.connect_ex(("localhost", port)) == 0
+    except Exception:
+        return False
+    finally:
+        s.close()
+
+
+def _lancer_chrome(port):
+    """Lance le Chrome dedie (profil « ChromeJarvis ») avec le port de debug.
+
+    Chrome 136+ interdit le debug sur le profil par defaut -> profil separe, comme
+    le raccourci « Chrome + Jarvis ». Renvoie True si le lancement est parti."""
+    if _port_ouvert(port):          # deja lance par ailleurs
+        return True
+    exe = _chrome_exe()
+    if not exe:
+        LOG.warning("navigateur: chrome.exe introuvable")
+        return False
+    profil = reglage("navigateur.profil_dir", "") or \
+        str(Path(os.environ.get("LOCALAPPDATA", "")) / "ChromeJarvis")
+    try:
+        subprocess.Popen([exe, f"--remote-debugging-port={port}",
+                          f"--user-data-dir={profil}"],
+                         creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
+        LOG.info("navigateur: Chrome dedie lance (port %s, profil %s)", port, profil)
+        return True
+    except Exception:
+        LOG.exception("navigateur: lancement Chrome")
+        return False
+
+
+def _tenter_cdp(port):
+    """Une tentative de connexion CDP. Renvoie le browser ou None."""
+    global _BROWSER
+    try:
+        from core.playwright_partage import obtenir
+        _BROWSER = obtenir().chromium.connect_over_cdp(f"http://localhost:{port}",
+                                                       timeout=3000)
+        return _BROWSER
+    except Exception:
+        _BROWSER = None
+        return None
 
 MOTS_ACHAT = ["acheter", "commander", "payer", "passer la commande",
               "valider la commande", "proceder au paiement", "checkout",
               "add to cart", "ajouter au panier"]
 
 
-def _connexion():
-    """Retourne le navigateur Chrome connecte, ou None s'il n'est pas joignable."""
+def _connexion(auto=True):
+    """Retourne le navigateur Chrome connecte, ou None.
+
+    Si aucun Chrome n'ecoute le port de debug, en lance un (profil dedie) et
+    reessaie — plus besoin de lancer le raccourci a la main (auto=False pour
+    desactiver ce comportement)."""
     global _BROWSER
     if _BROWSER is not None:
         try:
@@ -41,15 +115,20 @@ def _connexion():
             return _BROWSER
         except Exception:
             _BROWSER = None
-    try:
-        from core.playwright_partage import obtenir
-        port = int(reglage("navigateur.cdp_port", 9222))
-        _BROWSER = obtenir().chromium.connect_over_cdp(f"http://localhost:{port}",
-                                                       timeout=3000)
-        return _BROWSER
-    except Exception:
-        _BROWSER = None
-        return None
+    port = int(reglage("navigateur.cdp_port", 9222))
+    # 1) Chrome deja lance avec le port de debug ?
+    b = _tenter_cdp(port)
+    if b is not None:
+        return b
+    # 2) Sinon, auto-lancer le Chrome dedie et attendre qu'il reponde (~8 s).
+    if auto and _lancer_chrome(port):
+        for _ in range(16):
+            time.sleep(0.5)
+            if _port_ouvert(port):
+                b = _tenter_cdp(port)
+                if b is not None:
+                    return b
+    return None
 
 
 def _contexte(browser):
