@@ -83,9 +83,13 @@ fallback si le fournisseur tombe ou si tu révoques.)*
 
 ## À venir (phases suivantes)
 
-- **⚡ Énergie** : prise **Tapo P110** (API locale — conso PC temps réel), puis Linky
-  via un relais gratuit type MyElectricalData (Enedis DataConnect est réservé aux pros).
-  Octopus France n'a pas d'API publique.
+- **⚡ Énergie (N16)** : prise **Tapo P110** installée (nommée « Tour PC », intercalée
+  entre multiprise et tour — cf. [wol.md](wol.md)). **Backlog** : outil Jarvis local
+  (`python-kasa`/`plugp100`, `mcp_expose=False`) qui (a) lit la **conso temps réel du
+  setup** (`get_energy_usage` → W instantané + kWh jour/mois) pour ce volet, et (b)
+  expose `rallumer_pc` avec **garde-fou ping** (refuse de couper la prise si le PC
+  répond au ping). Puis Linky via un relais gratuit type MyElectricalData (Enedis
+  DataConnect est réservé aux pros). Octopus France n'a pas d'API publique.
 - **📈 Réseaux** : Insta (tokens existants), Twitch/YouTube plus tard.
 - **🎬 Contenu** : pipeline `contenus.yaml`, deadlines Loopstr, inspirations du Vault.
 - **🏠 Maison/Système** : liens vers `/panneau` (état chaîne, budgets) — intégré, pas dupliqué.

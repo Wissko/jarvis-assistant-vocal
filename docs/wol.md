@@ -35,24 +35,25 @@ assistant:
 **Principe** : le PC démarre **au retour du courant**, et tu pilotes le courant
 depuis l'iPhone via une prise Wi-Fi. Aucun réseau requis sur le PC.
 
-### 2.1 Choix de la prise — **API LOCALE obligatoire** (pas de cloud chinois)
+### 2.1 Prise retenue : **Tapo P110** ✅ (installée)
 
-Cohérence doctrine (local-first) **et** pour que Jarvis puisse la piloter un jour
-directement : choisis une prise avec **API locale documentée**, pas une prise 100 %
-cloud (Tuya générique, Meross…).
+**Installée** : une **TP-Link Tapo P110** (grand public, ~15 €, **mesure la conso** —
+c'est elle qui alimentera le volet Énergie du Cockpit). Pilotable **en local** via
+la lib Python `python-kasa` (≥ 0.7, protocole **KLAP**) ou `plugp100`.
 
-| Prise | API locale | Pourquoi |
-|---|---|---|
-| **Shelly Plug S / Plus Plug S** *(recommandée)* | **REST HTTP local** natif, sans cloud, MQTT dispo | Marque européenne (Allterco), API la plus simple à piloter (`http://<ip>/relay/0?turn=on`), mesure la conso. ~15-20 € |
-| **TP-Link Kasa** (KP105) / **Tapo** (P110) | Protocole local via la lib `python-kasa` | Grand public, pas cher, dispo partout ; local exploitable sans cloud |
-| **Prise pré-flashée Tasmota** (Athom, Nous A1T) | **HTTP local** open-source (`/cmnd?cmnd=Power%20On`) | 100 % libre, zéro cloud — idéal doctrine si tu acceptes une marque plus niche |
+> ⚠️ Particularité Tapo (vs Shelly) : **pas d'URL HTTP simple**. Le protocole local
+> KLAP exige les **identifiants du compte Tapo** (email + mot de passe) même pour un
+> appel 100 % local — ils servent au handshake de chiffrement, rien ne part vers le
+> cloud une fois la clé négociée. Ces identifiants iront dans `config.yaml`
+> (gitignoré) le jour de l'intégration Jarvis. *(Une Shelly aurait donné une API REST
+> plus simple — `http://<ip>/relay/0?turn=on` — mais la P110 fait le job et mesure la
+> conso, ce que toutes les Shelly ne font pas.)*
 
-→ **Recommandation : Shelly Plug S** (API REST locale la plus propre pour la future
-intégration Jarvis). **À éviter** : les prises no-name « Smart Life / Tuya » 100 %
-cloud, et Meross (local bancal).
-
-> Mets une **réservation DHCP** dans ta box pour la prise (par sa MAC) → son IP ne
-> bouge plus, les raccourcis et Jarvis la trouvent toujours.
+**Réglages faits :**
+- **Nom de la prise : « Tour PC »** (dans l'app Tapo).
+- **Réservation DHCP** conseillée dans la Bbox (par la MAC de la P110) → son IP ne
+  bouge plus, comme pour l'ESP32 amaran. *(À faire si pas encore fait — même méthode :
+  mabbox → appareils → la P110 → IP fixe.)*
 
 ### 2.2 BIOS MSI Z490 (Click BIOS 5)
 
@@ -62,59 +63,52 @@ Entre dans le BIOS (**Suppr** au démarrage), mode avancé (**F7**) :
   = Power On.**
 
 → Désormais, **chaque fois que le courant revient**, le PC démarre tout seul.
-Enregistre et quitte (**F10**).
+Enregistre et quitte (**F10**). **Réglé et testé ✅.**
 
-### 2.3 Câblage
+### 2.3 Câblage (fait ✅)
 
-Alim du PC (bloc secteur) → **prise connectée** → mur. **Laisse la prise sur ON** en
-temps normal (le PC doit avoir du courant). Le rallumage = **couper puis rétablir**
-le courant.
+**Tour PC → Tapo P110 « Tour PC » → multiprise → mur.** La P110 est intercalée
+**entre la multiprise et la tour** : elle ne coupe **que le PC**, pas le reste du
+setup (écrans, lampe, amaran…). **Laisse-la sur ON** en temps normal (le PC doit
+avoir du courant en permanence). Rallumage = **couper puis rétablir** via la P110.
 
-### 2.4 Raccourci Siri « Rallume le PC » + 🛡️ GARDE-FOU
+### 2.4 Rallumage sans PC : côté iPhone (app Tapo)
 
-⚠️ **Danger** : couper le courant d'un PC **allumé ou en veille** = arrêt brutal
-(risque de corruption). On ne coupe **QUE** si le PC est **vraiment éteint** (après
-« Jarvis éteins le PC »).
+⚠️ **Danger inchangé** : couper le courant d'un PC **allumé ou en veille** = arrêt
+brutal (risque de corruption). On ne coupe **QUE** si le PC est **vraiment éteint**
+(après « Jarvis éteins le PC »).
 
-Raccourci (app **Raccourcis**), en **local** sur ton Wi-Fi :
+La P110 **n'est pas HomeKit** → pas de raccourci « Obtenir l'URL » comme pour une
+Shelly. En attendant l'intégration Jarvis (§2.5) :
 
-1. **🛡️ Garde-fou — Demander confirmation** (action « Demander une confirmation ») :
-   texte *« Le PC est-il bien ÉTEINT ? Ne pas couper la prise s'il tourne ou dort. »*
-   → si **Annuler**, le raccourci s'arrête.
-2. **Couper** — « Obtenir le contenu de l'URL » :
-   - Shelly Gen1 : `http://IP-DE-LA-PRISE/relay/0?turn=off`
-   - Shelly Gen2 (Plus) : `http://IP-DE-LA-PRISE/rpc/Switch.Set?id=0&on=false`
-3. **Attendre** 4 secondes (action « Attendre »).
-4. **Rétablir** — « Obtenir le contenu de l'URL » :
-   - Shelly Gen1 : `http://IP-DE-LA-PRISE/relay/0?turn=on`
-   - Shelly Gen2 : `http://IP-DE-LA-PRISE/rpc/Switch.Set?id=0&on=true`
-5. **Notifier** — « Afficher une notification » : *« Le PC démarre. »*
+1. **App Tapo** → prise « Tour PC » → **OFF**, attendre ~4 s, **ON**. Le PC démarre
+   (BIOS Restore = Power On). ✅ **Cycle validé.**
+2. **Voix (option)** : l'app Tapo peut exposer « Tour PC » à **Siri / Raccourcis**
+   (réglages de la prise → *Raccourcis Siri*) → « Dis Siri, allume Tour PC ». ⚠️ Ce
+   raccourci natif **n'a pas de confirmation** — discipline manuelle obligatoire :
+   ne l'utilise **que** PC éteint.
 
-Nomme-le **« Rallume le PC »** → *« Dis Siri, rallume le PC »*.
-*(iPhone sur le **même Wi-Fi** que la prise : l'appel est 100 % local, aucun cloud.)*
+**Règle d'or** : ne coupe **jamais** la prise pendant que le PC tourne ou dort.
 
-**Consigne (règle d'or)** : n'utilise **« Rallume le PC »** **que** quand le PC est
-éteint. Ne coupe **jamais** la prise pendant qu'il tourne ou qu'il est en veille.
+### 2.5 🛡️ Garde-fou côté Jarvis (backlog — voir §5)
 
-### 2.5 🛡️ Garde-fou côté Jarvis (quand Jarvis pilotera la prise, plus tard)
-
-Le jour où on branche la prise à Jarvis (via son **API locale** — d'où le choix
-2.1), l'outil `rallumer_pc` devra **refuser de couper la prise si le PC répond au
-ping** (preuve qu'il est allumé). Design cible :
+Le jour où on branche la P110 à Jarvis (lib **`python-kasa`** ≥ 0.7 / `plugp100`, IP
+fixe + identifiants Tapo dans `config.yaml`), l'outil `rallumer_pc` devra **refuser de
+couper la prise si le PC répond au ping** (preuve qu'il est allumé). Design cible :
 
 ```text
 rallumer_pc():
     si ping(IP_du_PC) répond      -> "Le PC répond déjà, je ne touche pas à la prise."
     sinon (PC injoignable = éteint):
-        POST prise OFF (API locale)   # ex. http://IP-prise/relay/0?turn=off
+        P110.turn_off()               # via python-kasa (KLAP local)
         attendre 4 s
-        POST prise ON                 # http://IP-prise/relay/0?turn=on
+        P110.turn_on()
         -> "Courant rétabli, le PC démarre."
 ```
 
 Ce garde-fou par ping est **la raison** d'exiger une prise à **API locale** : Jarvis
 doit pouvoir couper/rétablir **et** vérifier l'état sans dépendre d'un cloud. *(Non
-codé pour l'instant : à faire quand la prise est là et son IP connue.)*
+codé : backlog §5.)*
 
 ---
 
@@ -143,11 +137,28 @@ Wake-on-LAN devient possible et plus « propre ». Réglages qui marchent :
 
 ---
 
-## 4. Test de bout en bout (prise connectée)
+## 4. Test de bout en bout (Tapo P110)
 
 1. **Éteins** : *« Jarvis, éteins le PC »* → confirme → lumières off + arrêt.
 2. Attends que le PC soit **complètement éteint**.
-3. **Rallume** : lance **« Rallume le PC »** (iPhone sur le Wi-Fi maison) → confirme
-   qu'il est bien éteint → la prise coupe puis rétablit → le PC **démarre**.
-4. Si rien : vérifie le BIOS **« Restore after AC Power Loss = Power On »** (§2.2) et
-   que l'IP de la prise dans le raccourci est la bonne.
+3. **Rallume** : app Tapo → « Tour PC » **OFF** → ~4 s → **ON** (ou raccourci Siri) →
+   le PC **démarre**. ✅ **Validé.**
+4. Si rien : vérifie le BIOS **« Restore after AC Power Loss = Power On »** (§2.2).
+
+---
+
+## 5. Backlog — intégration Jarvis de la Tapo P110
+
+**Non codé — à faire.** Deux usages, une seule intégration (`python-kasa` / `plugp100`,
+IP fixe + identifiants Tapo dans `config.yaml` gitignoré, `mcp_expose=False` — physique,
+reste local, jamais Hermes) :
+
+1. **Conso temps réel → Cockpit N16 (Énergie)** : lire `get_energy_usage()` de la P110
+   (puissance instantanée en W, kWh du jour/mois) → alimente le volet Énergie du
+   Cockpit (conso du setup en direct). Cf. [cockpit.md](cockpit.md).
+2. **Outil `rallumer_pc` avec garde-fou ping** (§2.5) : refuse de couper la prise si
+   le PC répond au ping. N1/N2, jamais N3 par erreur — mais un cycle prise reste une
+   action physique sensible → confirmation.
+
+⚠️ Rappel doctrine : couper la prise est **dangereux si le PC tourne** → le ping est
+non négociable dans l'implémentation.

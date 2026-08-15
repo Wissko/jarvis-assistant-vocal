@@ -67,13 +67,37 @@ Même chose que 🅐, **mais** :
 Ainsi : surligne un texte n'importe où (Safari, Notes, un message…) → **Partager** →
 **« Envoyer à Jarvis »** → c'est noté.
 
-### 🅒 « Dis à Jarvis » (commande à distance)
+### 🅒 « Dis à Jarvis » (commande à distance) — **2 modes**
 
-Identique à 🅐 **champ par champ**, sauf le corps JSON :
-- Action **« Demander une entrée »** → Type : Texte → invite « Ta commande ? » (dictée au micro).
-- Action **« Obtenir le contenu de l'URL »** : URL `.../api/inbox` · **POST** · en-tête
-  `X-Jarvis-Token` = ton token · Corps **JSON** : `type` = `commande` · `contenu` =
-  *la variable « Entrée fournie »* (la phrase dictée).
+Ce raccourci accepte la commande de **deux façons** : soit **dictée directement à Siri**
+(« Dis à Jarvis, **mode film** » → « mode film » part tout de suite, sans invite), soit —
+si tu le lances sans rien dire — via une **invite** classique. Le premier mode est le plus
+naturel (mains libres) ; le second est le filet de sécurité.
+
+**a) Configurer l'entrée Siri** (icône ⚙︎ du raccourci → *Détails*) :
+- Active **« Recevoir »** → type **Texte** → depuis **Siri** (garde aussi la feuille de
+  partage si tu veux). *(L'en-tête du raccourci affiche alors « Recevoir **Texte** de Siri
+  et de la feuille de partage ».)* **C'est ça** qui fait arriver le texte dit **après** le
+  nom du raccourci dans la variable **« Entrée du raccourci »**.
+
+**b) Les actions**, dans l'ordre :
+1. **« Si »** (If) → sujet **« Entrée du raccourci »** → condition **« a une valeur »**.
+   - Dans le Si : **« Définir la variable »** → nom `commande` → valeur **« Entrée du
+     raccourci »**.
+2. **« Sinon »** (Otherwise) :
+   - **« Demander une entrée »** (Ask for Input) → Type : Texte → invite « Ta commande ? »
+     (dictée au micro possible).
+   - **« Définir la variable »** → nom `commande` → valeur **« Entrée fournie »**.
+3. **« Fin de si »**.
+4. **« Obtenir le contenu de l'URL »** : URL `.../api/inbox` · **POST** · en-tête
+   `X-Jarvis-Token` = ton token · Corps **JSON** : `type` = `commande` · `contenu` =
+   la variable **`commande`**.
+5. *(option)* **« Afficher la note »** → *Message* de la réponse. Utile en test ; **retire-la**
+   pour un usage mains-libres 100 % vocal (sinon Siri lit la réponse mais attend un tap).
+
+> **Pourquoi le Si/Sinon** : en entrée **directe** (Siri a passé le texte), on saute l'invite
+> → réponse immédiate. En lancement **manuel** (tap sur l'icône, ou Siri n'a rien capté après
+> le nom), l'invite prend le relais → **jamais** de commande vide postée.
 
 La phrase (« éteins les lumières », « mode film ») est traitée par Jarvis à la maison
 **comme du vocal**, mais — **doctrine du pont** — **seuls les outils sûrs** (domotique/PC)
@@ -81,8 +105,24 @@ s'exécutent à distance : toute action sensible (mail, réservation, appel, sup
 **refusée** avec « à faire à la voix à la maison ». **Jamais de « toujours autoriser » depuis
 le distant** : un token volé ne peut qu'allumer/éteindre des lumières.
 
-👉 Astuce : nomme-le exactement **« Dis à Jarvis »**. Tu pourras alors dire à Siri :
-**« Dis Siri, Dis à Jarvis, mode film »** → Siri devient ta télécommande à distance.
+**c) La formulation Siri la plus fiable**
+
+Nomme le raccourci **exactement** « **Dis à Jarvis** », puis dis-le en **une seule phrase
+continue**, le **nom d'abord**, la **commande ensuite** :
+- ✅ « Dis Siri… **Dis à Jarvis, mode film** »
+- ✅ « **Dis à Jarvis, éteins les lumières** »
+- ✅ « **Dis à Jarvis, mets une ambiance cosy** »
+
+Astuces fiabilité :
+- **Micro-pause** (la virgule) après « Dis à Jarvis » : Siri sépare mieux le **nom** du
+  raccourci de l'**argument**.
+- **Évite** qu'un autre raccourci commence par « Dis à Jarvis… » : Siri prend le nom le plus
+  long qui matche → ambiguïté.
+- Si Siri lance le raccourci **sans** passer la commande (ça arrive selon l'humeur d'iOS),
+  pas grave : le **repli invite** (b-2) te la redemande. Tu peux aussi dire « **Dis à Jarvis** »
+  **seul** pour forcer l'invite.
+- Règle **Siri en français** (Réglages → Siri et Rechercher → Langue) pour bien capter les
+  accents.
 
 ### 🅓 « Inspiration Jarvis » (partager un reel → vault de contenu)
 
