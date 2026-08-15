@@ -73,8 +73,24 @@ def traiter_commande(phrase):
             if getattr(b, "type", None) != "tool_use":
                 continue
             outil = registre.get(b.name)
+            # Domotique explicitement ouverte a distance (config pont_iphone.domotique_distante) :
+            # outils physiques REVERSIBLES (lumieres, clim, aspirateur, scenes...) que
+            # l'utilisateur accepte de piloter depuis l'iPhone. Contourne la confirmation ET
+            # mcp_expose, MAIS jamais un N3 (mail/appel/suppression/extinction/reservation
+            # restent bloques a distance, quoi qu'il arrive). mcp_expose reste False sur ces
+            # outils -> ils ne sont PAS exposes a Hermes (exposes_mcp filtre sur mcp_expose).
+            domo_distante = set(reglage("pont_iphone.domotique_distante", []) or [])
             if outil is None:
                 res = f"Outil inconnu : {b.name}"
+            elif registre.est_n3(b.name):
+                res = "Action critique : a faire a la voix a la maison (refusee a distance)."
+            elif b.name in domo_distante:
+                try:
+                    res = str(outil.fonction(**(b.input or {})))
+                    faits.append(b.name)
+                except Exception:
+                    LOG.exception("pont: outil %s", b.name)
+                    res = "Erreur pendant l'action."
             elif outil.confirmation or not outil.mcp_expose:
                 res = "Action sensible : a faire a la voix a la maison (refusee a distance)."
             else:
