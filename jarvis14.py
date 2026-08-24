@@ -55,8 +55,17 @@ def _haut_parleur():
 # par les providers (core/llm.py, core/tts.py), selon config.yaml (mode: cloud|local).
 MODELE_WHISPER = config.reglage("whisper.modele", "medium")
 
-TAUX = 16000
-BLOC = 1280
+TAUX = 16000               # taux de TRAITEMENT : openWakeWord ET faster-whisper exigent 16 kHz
+BLOC = 1280                # 80 ms @ 16 kHz (trame attendue par openWakeWord)
+
+# Taux de CAPTURE du micro. Beaucoup de micros / le mode partagé WASAPI (Windows)
+# ne fonctionnent QU'EN 48 kHz : demander 16 kHz échoue alors (« Invalid sample
+# rate ») ou sort de l'audio déformé -> wake word et transcription cassés. On
+# détecte donc un taux de capture supporté au démarrage (cf. _choisir_taux_capture)
+# et on rééchantillonne chaque bloc vers 16 kHz si nécessaire. Définis à 16000 ici
+# pour ne rien changer si le micro le supporte (chemin rapide, aucun resample).
+CAPTURE_TAUX = TAUX
+BLOC_CAPTURE = BLOC
 
 SEUIL_REVEIL = config.reglage("assistant.seuil_reveil", 0.5)   # sensibilite du mot d'activation
 SEUIL_INTERRUPTION = 0.7   # plus strict : le micro entend aussi l'enceinte
@@ -688,6 +697,43 @@ def charger_whisper():
 # ---------------------------------------------------------------- principal
 
 
+def _choisir_taux_capture(device):
+    """Taux de capture supporté par le micro. Préfère 16 kHz (aucun resample) ;
+    sinon le taux natif du périphérique (souvent 48 kHz). Surchargé par audio.taux."""
+    force = config.reglage("audio.taux", None)
+    if force:
+        return int(force)
+    try:
+        sd.check_input_settings(device=device, samplerate=TAUX, channels=1,
+                                dtype="float32")
+        return TAUX                      # le micro fait du 16 kHz : chemin rapide
+    except Exception:
+        pass
+    try:
+        info = sd.query_devices(device, "input")
+        tx = int(round(info.get("default_samplerate") or 48000))
+        return tx if tx > 0 else 48000
+    except Exception:
+        return 48000
+
+
+def _vers_16k(bloc):
+    """Rééchantillonne un bloc mono float32 de CAPTURE_TAUX vers 16 kHz (TAUX)."""
+    if CAPTURE_TAUX == TAUX:
+        return bloc
+    from math import gcd
+    from scipy.signal import resample_poly
+    g = gcd(TAUX, CAPTURE_TAUX)
+    return resample_poly(bloc, TAUX // g, CAPTURE_TAUX // g).astype(np.float32)
+
+
+def lire_bloc(flux):
+    """Lit un bloc du micro et renvoie ~80 ms d'audio 16 kHz mono float32,
+    en rééchantillonnant si le micro ne capture pas nativement en 16 kHz."""
+    bloc, _ = flux.read(BLOC_CAPTURE)
+    return _vers_16k(bloc.flatten())
+
+
 def capturer(flux, tampon):
     """Enregistre depuis le micro jusqu'au silence. Renvoie l'audio ou None."""
     morceaux = list(tampon)
@@ -695,8 +741,7 @@ def capturer(flux, tampon):
     dernier_son = time.time()
 
     while True:
-        bloc, _ = flux.read(BLOC)
-        bloc = bloc.flatten()
+        bloc = lire_bloc(flux)
         morceaux.append(bloc)
         _hud("niveau", _niv_hud(bloc))
 
@@ -724,10 +769,9 @@ def attendre_suite(flux, tampon, duree=DUREE_SUITE):
     blocs_voix = 0
     while time.time() - debut < duree:
         try:
-            bloc, _ = flux.read(BLOC)
+            bloc = lire_bloc(flux)
         except Exception:
             return False
-        bloc = bloc.flatten()
         tampon.append(bloc)
         _hud("niveau", _niv_hud(bloc))
         if niveau(bloc) > SEUIL_PAROLE_SUR:
@@ -1067,9 +1111,15 @@ def main():
     _refaire_systeme(faits)
     historique = []
 
+    global CAPTURE_TAUX, BLOC_CAPTURE
+    CAPTURE_TAUX = _choisir_taux_capture(MICRO)
+    BLOC_CAPTURE = int(round(BLOC * CAPTURE_TAUX / TAUX))   # ~80 ms au taux de capture
+    if CAPTURE_TAUX != TAUX:
+        print(f"[audio] micro en {CAPTURE_TAUX} Hz -> reechantillonnage vers {TAUX} Hz "
+              f"(bloc {BLOC_CAPTURE} -> {BLOC})")
     flux = sd.InputStream(
-        samplerate=TAUX, channels=1, dtype="float32",
-        device=MICRO, blocksize=BLOC,
+        samplerate=CAPTURE_TAUX, channels=1, dtype="float32",
+        device=MICRO, blocksize=BLOC_CAPTURE,
     )
     flux.start()
 
@@ -1092,10 +1142,10 @@ def main():
                 pass
             try:
                 bip(880, 0.12)
-                audio = sd.rec(int(secondes * TAUX), samplerate=TAUX, channels=1,
-                               dtype="float32", device=MICRO)
+                audio = sd.rec(int(secondes * CAPTURE_TAUX), samplerate=CAPTURE_TAUX,
+                               channels=1, dtype="float32", device=MICRO)
                 sd.wait()
-                return audio.reshape(-1), TAUX
+                return _vers_16k(audio.reshape(-1)), TAUX
             finally:
                 try:
                     if actif:
@@ -1137,8 +1187,7 @@ def main():
         while True:
             suite = enchainer
             if not enchainer:
-                bloc, _ = flux.read(BLOC)
-                bloc = bloc.flatten()
+                bloc = lire_bloc(flux)
                 tampon.append(bloc)
 
                 if _MICRO_MUET.is_set():        # wake word coupe (raccourci mute)
