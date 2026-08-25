@@ -1233,6 +1233,14 @@ def main():
     print('\nPret. Dites "Hey Jarvis". Ctrl+C pour quitter.\n')
     print('Vous pouvez le couper en redisant "Hey Jarvis" pendant qu\'il parle.\n')
 
+    # Scene "au demarrage" : jouee UNE fois par jour, au premier lancement (musique
+    # + lumieres selon l'heure + accueil vocal / brief Hermes). En tache de fond.
+    try:
+        from tools import scenes
+        scenes.jouer_au_demarrage_async()
+    except Exception:
+        LOG.exception("scene au demarrage")
+
     tampon = deque(maxlen=6)
     enchainer = False
 
