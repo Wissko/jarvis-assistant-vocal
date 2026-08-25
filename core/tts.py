@@ -144,8 +144,32 @@ class PiperProvider(ProviderTTS):
         try:
             if self._voix is None:
                 self._voix = PiperVoice.load(str(chemin))
-            brut = b"".join(self._voix.synthesize_stream_raw(texte))
-            return np.frombuffer(brut, dtype=np.int16), self._voix.config.sample_rate
+
+            # Ancienne API (piper-tts <= 1.2.x) : synthesize_stream_raw() -> PCM brut.
+            if hasattr(self._voix, "synthesize_stream_raw"):
+                brut = b"".join(self._voix.synthesize_stream_raw(texte))
+                return np.frombuffer(brut, dtype=np.int16), self._voix.config.sample_rate
+
+            # Nouvelle API (piper-tts >= 1.3.0, réécriture OHF-Voice/piper1-gpl) :
+            # synthesize() renvoie des AudioChunk (int16 + sample_rate). C'est le
+            # cas de la version par défaut de requirements.txt (issue NOVON82).
+            morceaux, freq = [], None
+            for chunk in self._voix.synthesize(texte):
+                octets = getattr(chunk, "audio_int16_bytes", None)
+                if octets is None:                       # repli : tableau float
+                    arr = getattr(chunk, "audio_float_array", None)
+                    if arr is not None:
+                        octets = (np.asarray(arr) * 32767).astype(np.int16).tobytes()
+                if octets:
+                    morceaux.append(octets)
+                if freq is None:
+                    freq = getattr(chunk, "sample_rate", None)
+            brut = b"".join(morceaux)
+            if not brut:
+                return None
+            if not freq:
+                freq = getattr(getattr(self._voix, "config", None), "sample_rate", 22050)
+            return np.frombuffer(brut, dtype=np.int16), freq
         except Exception as e:
             print(f"  [Piper] echec ({e}), repli voix Windows.")
             return None
