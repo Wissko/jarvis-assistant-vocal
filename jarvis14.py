@@ -41,7 +41,7 @@ from tools.lumieres import allumer_si_nuit, charger_pieces_hue
 
 # ---------------------------------------------------------------- reglages
 
-MICRO = config.reglage("audio.micro", 1)
+MICRO = config.reglage("audio.micro", None)   # None = micro par défaut du système (portable). Mets l'index de TON micro dans config.yaml (voir sounddevice.query_devices()).
 # None = sortie audio par defaut de Windows (suit l'enceinte/casque actif).
 HAUT_PARLEUR = config.reglage("audio.haut_parleur", None)
 

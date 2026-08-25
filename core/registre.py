@@ -5,7 +5,10 @@ Au demarrage, charger_outils() importe tous les modules de tools/ pour peupler
 le registre. Le reste de l'assistant n'a plus a connaitre les outils un par un.
 """
 import importlib
+import logging
 import pkgutil
+
+LOG = logging.getLogger("jarvis.registre")
 
 _REGISTRE = {}      # nom -> Outil
 _EN_ATTENTE = None  # (Outil, args) en attente d'une confirmation vocale
@@ -54,10 +57,23 @@ def affichage(nom):
 
 
 def charger_outils():
-    """Importe tous les modules de tools/ pour remplir le registre."""
+    """Importe tous les modules de tools/ pour remplir le registre.
+
+    Chaque module est isolé : si l'un rate son import (dépendance optionnelle
+    absente sur la machine de l'utilisateur), on le loggue et on CONTINUE — les
+    autres outils se chargent quand même. Sans ça, un seul import cassé faisait
+    disparaître silencieusement tous les outils suivants."""
     import tools
+    echecs = []
     for module in pkgutil.iter_modules(tools.__path__):
-        importlib.import_module(f"tools.{module.name}")
+        try:
+            importlib.import_module(f"tools.{module.name}")
+        except Exception as e:
+            echecs.append(module.name)
+            LOG.warning("outil « %s » non chargé (dépendance manquante ?) : %s",
+                        module.name, e, exc_info=True)
+    if echecs:
+        LOG.warning("%d outil(s) ignoré(s) : %s", len(echecs), ", ".join(echecs))
 
 
 def get(nom):
