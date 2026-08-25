@@ -4,6 +4,16 @@ from core.registre import outil
 # Cote le plus large envoye a Claude (recommandation vision d'Anthropic).
 LARGEUR_CAPTURE = 1568
 
+# Derniere capture : geometrie du moniteur (pixels physiques) + dimensions de
+# l'image ENVOYEE a Claude. Sert a tools/souris.py pour convertir des coordonnees
+# vues dans l'image -> coordonnees ecran reelles (cf. cliquer_ecran).
+_DERNIERE = None
+
+
+def derniere_capture():
+    """Renvoie {moniteur, largeur, hauteur} de la derniere capture, ou None."""
+    return _DERNIERE
+
 
 @outil(
     nom="capture_screen",
@@ -53,6 +63,11 @@ def capture_screen(ecran: int = 0):
         if largeur > LARGEUR_CAPTURE:
             ratio = LARGEUR_CAPTURE / largeur
             image = image.resize((LARGEUR_CAPTURE, max(1, round(hauteur * ratio))))
+
+        # Memorise la geometrie pour un eventuel clic (tools/souris.py).
+        global _DERNIERE
+        _DERNIERE = {"moniteur": dict(cible),
+                     "largeur": image.size[0], "hauteur": image.size[1]}
 
         tampon = io.BytesIO()
         image.save(tampon, format="JPEG", quality=80)
