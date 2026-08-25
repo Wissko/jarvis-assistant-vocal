@@ -761,14 +761,20 @@ def _calibrer_seuils(flux, secondes=1.0):
     return seuil_silence, seuil_parole
 
 
-def capturer(flux, tampon, duree_min=0.6):
+def capturer(flux, tampon, duree_min=0.6, attente_debut=None):
     """Enregistre depuis le micro jusqu'au silence. Renvoie l'audio ou None.
 
     duree_min : durée minimale (s) en dessous de laquelle on considère qu'il n'y
-    a rien eu. Plus court pour une confirmation (un « oui » rapide doit compter)."""
+    a rien eu. Plus court pour une confirmation (un « oui » rapide doit compter).
+    attente_debut : temps laissé pour COMMENCER à parler avant d'abandonner (par
+    défaut SILENCE_FIN). Plus long pour une confirmation (laisser le temps de
+    répondre « oui/non »). Une fois la parole commencée, la fin reste sur
+    SILENCE_FIN de silence."""
     morceaux = list(tampon)
     debut = time.time()
     dernier_son = time.time()
+    a_parle = False
+    seuil_debut = attente_debut if attente_debut is not None else SILENCE_FIN
 
     while True:
         bloc = lire_bloc(flux)
@@ -777,7 +783,11 @@ def capturer(flux, tampon, duree_min=0.6):
 
         if niveau(bloc) > SEUIL_SILENCE:
             dernier_son = time.time()
-        if time.time() - dernier_son > SILENCE_FIN:
+            a_parle = True
+        # Avant de parler : on patiente jusqu'a seuil_debut. Apres : fin de phrase
+        # des SILENCE_FIN de silence.
+        limite = SILENCE_FIN if a_parle else seuil_debut
+        if time.time() - dernier_son > limite:
             break
         if time.time() - debut > DUREE_MAX:
             print("  (trop long, je coupe)")
@@ -939,7 +949,8 @@ def _confirmer(interrompu, relancer, whisper, historique, flux):
 
     _INTERRUPTION.clear()
     _hud("etat", "ecoute")
-    audio_conf = capturer(flux, deque(), duree_min=0.3)   # un « oui » rapide doit compter
+    audio_conf = capturer(flux, deque(), duree_min=0.3,
+                          attente_debut=float(config.reglage("assistant.attente_confirmation", 3.0)))
     reponse = ""
     if audio_conf is not None:
         seg, _ = whisper.transcribe(audio_conf, language="fr", beam_size=5)

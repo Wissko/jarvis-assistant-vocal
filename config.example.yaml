@@ -82,6 +82,7 @@ assistant:
   # seuil_parole: 0.025        # au-dessus = parole sure (reprise sans wake word)
   silence_fin: 1.2             # secondes de silence avant de considerer la phrase finie
   duree_max: 20                # duree max d'un enregistrement (secondes)
+  attente_confirmation: 3.0    # secondes laissees pour repondre oui/non a une confirmation
 
 obs:                           # OBS Studio 28+ -> Outils -> Parametres du serveur WebSocket
   host: "localhost"
