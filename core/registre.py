@@ -244,6 +244,7 @@ def executer_confirme(memoriser=False):
     try:
         res = outil_obj.fonction(**args)
     except Exception:
+        LOG.exception("outil confirmé « %s » a échoué", outil_obj.nom)
         return "Desole, je n'ai pas reussi a faire ca."
     return (str(res) + suffixe) if suffixe else res
 

@@ -129,8 +129,12 @@ def arreter():
     if _PROC is not None:
         try:
             _PROC.terminate()
+            _PROC.wait(timeout=3)          # attendre la vraie sortie (libère la webcam cv2)
         except Exception:
-            pass
+            try:
+                _PROC.kill()               # de secours si terminate n'a pas suffi
+            except Exception:
+                pass
         _PROC = None
     return "Contrôle par gestes coupé. La webcam est éteinte."
 

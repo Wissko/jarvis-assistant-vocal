@@ -396,7 +396,7 @@ MOTS_OUI = (
 
 def type_arret(texte):
     """Renvoie 'relance', 'fin' ou None selon l'ordre d'arret detecte."""
-    plat = sans_accents(texte)
+    plat = sans_accents(texte.replace("’", "'").replace("‘", "'"))
     plat = "".join(c if c.isalnum() or c in " '-" else " " for c in plat)
     if any(m in plat for m in MOTS_RELANCE):
         return "relance"
@@ -409,7 +409,7 @@ def _est_oui(texte):
     """Vrai si la transcription exprime un accord (oui/vas-y/confirme...)."""
     if not texte:
         return False
-    plat = sans_accents(texte)
+    plat = sans_accents(texte.replace("’", "'").replace("‘", "'"))
     plat = "".join(c if c.isalnum() or c in " '-" else " " for c in plat)
     return any(m in plat for m in MOTS_OUI)
 
@@ -734,8 +734,11 @@ def lire_bloc(flux):
     return _vers_16k(bloc.flatten())
 
 
-def capturer(flux, tampon):
-    """Enregistre depuis le micro jusqu'au silence. Renvoie l'audio ou None."""
+def capturer(flux, tampon, duree_min=0.6):
+    """Enregistre depuis le micro jusqu'au silence. Renvoie l'audio ou None.
+
+    duree_min : durée minimale (s) en dessous de laquelle on considère qu'il n'y
+    a rien eu. Plus court pour une confirmation (un « oui » rapide doit compter)."""
     morceaux = list(tampon)
     debut = time.time()
     dernier_son = time.time()
@@ -755,7 +758,7 @@ def capturer(flux, tampon):
 
     tampon.clear()
     audio = np.concatenate(morceaux)
-    return audio if len(audio) >= TAUX * 0.6 else None
+    return audio if len(audio) >= TAUX * duree_min else None
 
 
 def attendre_suite(flux, tampon, duree=DUREE_SUITE):
@@ -825,13 +828,12 @@ def repondre_en_ecoutant(historique, flux, reveil, whisper):
             time.sleep(0.05)
             continue
         try:
-            bloc, _ = flux.read(BLOC)
+            bloc = lire_bloc(flux)          # 16 kHz (rééchantillonné si micro 48 kHz)
         except Exception:
             if _CAPTURE_MUSIQUE.is_set():
                 time.sleep(0.05)
                 continue
             break
-        bloc = bloc.flatten()
         _hud("niveau", _niv_hud(bloc))
 
         # On ne surveille l'interruption QUE pendant que Jarvis parle vraiment.
@@ -910,7 +912,7 @@ def _confirmer(interrompu, relancer, whisper, historique, flux):
 
     _INTERRUPTION.clear()
     _hud("etat", "ecoute")
-    audio_conf = capturer(flux, deque())
+    audio_conf = capturer(flux, deque(), duree_min=0.3)   # un « oui » rapide doit compter
     reponse = ""
     if audio_conf is not None:
         seg, _ = whisper.transcribe(audio_conf, language="fr", beam_size=5)
