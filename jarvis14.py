@@ -68,13 +68,17 @@ CAPTURE_TAUX = TAUX
 BLOC_CAPTURE = BLOC
 
 SEUIL_REVEIL = config.reglage("assistant.seuil_reveil", 0.5)   # sensibilite du mot d'activation
-SEUIL_INTERRUPTION = 0.7   # plus strict : le micro entend aussi l'enceinte
-SEUIL_PAROLE_SUR = 0.025
+SEUIL_INTERRUPTION = config.reglage("assistant.seuil_interruption", 0.7)  # couper Jarvis pendant qu'il parle (le micro entend aussi l'enceinte)
+# Seuils de NIVEAU (RMS) : dependent du gain du micro. Valeurs par defaut calees
+# sur un micro moyen, MAIS auto-calibrees au demarrage selon le bruit ambiant
+# (cf. _calibrer_seuils) sauf si tu les fixes toi-meme en config ou desactives
+# assistant.auto_calibration. C'est le « regler les niveaux » du retour testeur.
+SEUIL_PAROLE_SUR = config.reglage("assistant.seuil_parole", 0.025)   # au-dessus = parole sure
+SEUIL_SILENCE = config.reglage("assistant.seuil_silence", 0.010)     # en-dessous = silence
+SILENCE_FIN = config.reglage("assistant.silence_fin", 1.2)           # s de silence -> fin de phrase
+DUREE_MAX = config.reglage("assistant.duree_max", 20)                # s max d'enregistrement
 BLOCS_AVANT_VERIF = 5      # 5 x 80 ms = 0,4 s de parole continue
 DELAI_ENTRE_VERIFS = 1.0
-SEUIL_SILENCE = 0.010
-SILENCE_FIN = 1.2
-DUREE_MAX = 20
 
 # Fenetre de suivi : apres une reponse, Jarvis reste a l'ecoute ce nombre de
 # secondes pour enchainer une nouvelle demande sans redire "Hey Jarvis".
@@ -734,6 +738,29 @@ def lire_bloc(flux):
     return _vers_16k(bloc.flatten())
 
 
+def _calibrer_seuils(flux, secondes=1.0):
+    """Mesure le bruit ambiant ~1 s et renvoie (seuil_silence, seuil_parole)
+    adaptés au micro et à la pièce. À appeler au démarrage, l'utilisateur ne
+    parlant pas. Renvoie None si la mesure échoue.
+
+    Idée : les seuils absolus dépendent du gain du micro ; on les cale au-dessus
+    du plancher de bruit mesuré (médiane, robuste aux transitoires)."""
+    niveaux = []
+    t0 = time.time()
+    while time.time() - t0 < secondes:
+        try:
+            niveaux.append(niveau(lire_bloc(flux)))
+        except Exception:
+            break
+    if len(niveaux) < 4:
+        return None
+    niveaux.sort()
+    fond = niveaux[len(niveaux) // 2]                  # médiane = plancher de bruit
+    seuil_silence = min(0.05, max(0.004, fond * 2.0))
+    seuil_parole = min(0.12, max(0.010, fond * 4.5))
+    return seuil_silence, seuil_parole
+
+
 def capturer(flux, tampon, duree_min=0.6):
     """Enregistre depuis le micro jusqu'au silence. Renvoie l'audio ou None.
 
@@ -1124,6 +1151,19 @@ def main():
         device=MICRO, blocksize=BLOC_CAPTURE,
     )
     flux.start()
+
+    # Auto-calibration des seuils de niveau selon le bruit ambiant (portabilité :
+    # s'adapte au gain du micro et à la pièce). Ignorée si tu fixes toi-même
+    # assistant.seuil_silence / seuil_parole, ou si assistant.auto_calibration = false.
+    if (config.reglage("assistant.auto_calibration", True)
+            and config.reglage("assistant.seuil_silence", None) is None
+            and config.reglage("assistant.seuil_parole", None) is None):
+        global SEUIL_SILENCE, SEUIL_PAROLE_SUR
+        cal = _calibrer_seuils(flux)
+        if cal:
+            SEUIL_SILENCE, SEUIL_PAROLE_SUR = cal
+            print(f"[audio] seuils auto-calibrés au bruit ambiant : "
+                  f"silence={SEUIL_SILENCE:.4f}  parole={SEUIL_PAROLE_SUR:.4f}")
 
     # Reconnaissance musicale : capture depuis le micro en SUSPENDANT proprement le
     # wake word (micro partage). Un bip signale l'ecoute AVANT la capture, pour ne
