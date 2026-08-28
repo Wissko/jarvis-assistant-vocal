@@ -44,7 +44,13 @@ elevenlabs:                    # facultatif ; sans cle, Jarvis garde la voix Win
   cle: ""                      # https://elevenlabs.io , profil -> API key (commence par sk_)
   voix: ""                     # ID d'une voix (onglet Voices) ; vide = 1re du compte
   modele: "eleven_flash_v2_5"
-  langue: "fr"                 # force la langue (flash/turbo v2.5) : bonne prononciation des accents
+  langue: "auto"               # reprend automatiquement la langue detectee (fr/en)
+
+voix_windows:                  # repli local immediat, sans cle API
+  fr: "Microsoft Paul"         # voix masculine francaise
+  en: "Microsoft Mark"         # voix masculine anglaise
+  debit: -1                    # pose, style assistant technologique (-10 a 10)
+  volume: 100
 
 hue:                           # Philips Hue, API locale
   pont: "192.168.1.XXX"        # adresse du pont sur ton reseau

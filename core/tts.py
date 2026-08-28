@@ -1,6 +1,6 @@
 """Abstraction de la synthese vocale (TTS) : cloud ou local, meme interface.
 
-Chaque provider expose `synthetiser(texte)` qui renvoie (audio_int16, frequence)
+Chaque provider expose `synthetiser(texte, langue)` qui renvoie (audio_int16, frequence)
 ou None. jarvis14 se charge de JOUER l'audio (avec sa gestion d'interruption) et
 retombe sur la voix Windows (SAPI) si le provider renvoie None.
 
@@ -34,13 +34,23 @@ LOG = logging.getLogger("jarvis")
 _RACINE = Path(__file__).resolve().parent.parent
 
 
+def parametres_voix_windows(langue=None):
+    """Voix SAPI masculine et style a employer pour la langue courante."""
+    code = "en" if str(langue or "").lower().startswith("en") else "fr"
+    nom = reglage(
+        f"voix_windows.{code}", "Microsoft Mark" if code == "en" else "Microsoft Paul")
+    debit = max(-10, min(10, int(reglage("voix_windows.debit", -1))))
+    volume = max(0, min(100, int(reglage("voix_windows.volume", 100))))
+    return code, str(nom or ""), debit, volume
+
+
 class ProviderTTS:
     nom = "?"
 
     def disponible(self):
         return True
 
-    def synthetiser(self, texte):
+    def synthetiser(self, texte, langue=None):
         """Renvoie (numpy int16 mono, frequence_hz) ou None si indisponible."""
         return None
 
@@ -75,7 +85,9 @@ class ElevenLabsProvider(ProviderTTS):
             self._voix_resolue = "21m00Tcm4TlvDq8ikWAM"   # Rachel, par defaut
         return self._voix_resolue
 
-    def synthetiser(self, texte):
+    def synthetiser(self, texte, langue=None):
+        if not self.disponible():
+            return None
         try:
             import miniaudio
             import numpy as np
@@ -83,11 +95,13 @@ class ElevenLabsProvider(ProviderTTS):
             return None
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{self._resoudre_voix()}"
         charge = {"text": texte, "model_id": self.modele}
-        # Flash/Turbo v2.5 acceptent language_code : on force le francais pour une
-        # bonne prononciation des accents (e accent, c cedille...) quelle que soit
-        # la voix (sinon la langue est auto-detectee et parfois lue en anglais).
+        # Flash/Turbo v2.5 acceptent language_code : on propage la langue detectee
+        # par Whisper pour conserver la bonne prononciation en francais/anglais.
         if any(x in self.modele for x in ("flash", "turbo")):
-            charge["language_code"] = reglage("elevenlabs.langue", "fr")
+            configuree = reglage("elevenlabs.langue", "auto")
+            code = langue if configuree in (None, "", "auto") else configuree
+            if code:
+                charge["language_code"] = str(code).split("-")[0].lower()
         corps = json.dumps(charge).encode("utf-8")
         requete = urllib.request.Request(url, data=corps, method="POST", headers={
             "xi-api-key": self.cle, "Content-Type": "application/json",
@@ -130,7 +144,7 @@ class PiperProvider(ProviderTTS):
         c = self._chemin()
         return bool(c and c.exists())
 
-    def synthetiser(self, texte):
+    def synthetiser(self, texte, langue=None):
         try:
             import numpy as np
             from piper import PiperVoice
@@ -189,7 +203,7 @@ class KokoroProvider(ProviderTTS):
     def disponible(self):
         return bool(self.modele and Path(self.modele).exists())
 
-    def synthetiser(self, texte):
+    def synthetiser(self, texte, langue=None):
         try:
             import numpy as np
             from kokoro_onnx import Kokoro
@@ -202,7 +216,9 @@ class KokoroProvider(ProviderTTS):
         try:
             if self._k is None:
                 self._k = Kokoro(self.modele, self.voix)
-            samples, freq = self._k.create(texte, voice=self.voix_nom, speed=1.0, lang="fr-fr")
+            code = "en-us" if str(langue or "").lower().startswith("en") else "fr-fr"
+            samples, freq = self._k.create(
+                texte, voice=self.voix_nom, speed=1.0, lang=code)
             audio = (np.asarray(samples) * 32767).astype(np.int16)
             return audio, freq
         except Exception as e:
