@@ -3,9 +3,8 @@
 
 mode: hybride                  # local | hybride | qualite  (voir docs/costs.md)
                                #  local   = tout local (Ollama + Piper), rien ne sort
-                               #  hybride = DEFAUT : reflexes + vision en Claude eco ;
-                               #            taches de fond confiees a Hermes
-                               #  qualite = cloud partout, modele le plus fort
+                               #  hybride = Codex OAuth (configuration par defaut)
+                               #  qualite = Codex OAuth systematiquement
                                # (l'ancien "cloud" reste accepte = hybride)
 
 ollama:                        # mode local : modele de langage local (http://localhost:11434)
@@ -16,6 +15,15 @@ ollama:                        # mode local : modele de langage local (http://lo
                                # Ollama recent requis (le tool-calling qwen3.5 buggait sur d'anciennes versions).
   think: false                 # false = pas de "raisonnement" natif : indispensable pour la latence et les
                                # appels d'outils (sinon tres lent / rendus en texte). Laisse false.
+
+codex:                         # modes hybride/qualite : abonnement ChatGPT, sans cle API
+  actif: true
+  executable: "codex"
+  home: "logs/codex-home"      # OAuth Codex dedie a Jarvis (ignore par Git)
+  modele: "auto"              # auto = meilleur modele disponible pour ton compte
+  reasoning_effort: "medium"  # low | medium | high | xhigh
+  timeout: 180
+  login_timeout: 180           # le navigateur s'ouvre au premier lancement
 
 voix_locale: piper             # mode local : "piper" (recommande FR) ou "kokoro"
 

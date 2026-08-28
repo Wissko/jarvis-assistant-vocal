@@ -1,8 +1,9 @@
 """Abstraction du modele de langage : le reste du code ignore quel provider tourne.
 
-Deux implementations, choisies par config.yaml (mode: cloud | local) :
+Trois implementations, choisies par config.yaml :
   - ClaudeProvider  : API Anthropic (cloud, defaut).
   - OllamaProvider  : Ollama en local (http://localhost:11434), 100% offline.
+  - CodexProvider   : Codex App Server + OAuth ChatGPT, sans cle API.
 
 Les deux exposent la meme methode `repondre(systeme, historique, outils)` et
 renvoient un objet a la forme d'une reponse Anthropic (.stop_reason + .content,
@@ -95,6 +96,79 @@ class ClaudeProvider(ProviderLLM):
         except Exception:
             pass
         return rep
+
+
+# --------------------------------------------------------------- Codex (OAuth ChatGPT)
+
+class CodexProvider(ProviderLLM):
+    nom = "Codex"
+
+    def __init__(self, modele=None):
+        from core.codex_app_server import CodexAppServer
+        self.modele = modele or reglage("codex.modele", "auto")
+        self.effort = reglage("codex.reasoning_effort", "medium")
+        self.timeout = int(reglage("codex.timeout", 180) or 180)
+        self.client = CodexAppServer(
+            reglage("codex.executable", "codex"),
+            reglage("codex.login_timeout", 180),
+            reglage("codex.home", "logs/codex-home"))
+        self._compte_verifie = False
+
+    def disponible(self):
+        if not self.client.disponible():
+            return False
+        if not self._compte_verifie:
+            try:
+                self._compte_verifie = self.client.compte(connecter=True) is not None
+            except Exception as e:
+                LOG.warning("codex: compte indisponible (%s)", e)
+                return False
+        return self._compte_verifie
+
+    @staticmethod
+    def _historique(historique):
+        lignes = []
+        for message in historique:
+            role = message.get("role", "user")
+            contenu = message.get("content", "")
+            if isinstance(contenu, str):
+                lignes.append(f"{role}: {contenu}")
+                continue
+            morceaux = []
+            for bloc in contenu or []:
+                if isinstance(bloc, dict):
+                    if bloc.get("type") == "tool_result":
+                        morceaux.append("RESULTAT_OUTIL " + json.dumps({
+                            "id": bloc.get("tool_use_id"),
+                            "contenu": bloc.get("content")}, ensure_ascii=False, default=str))
+                    elif bloc.get("type") == "text":
+                        morceaux.append(str(bloc.get("text", "")))
+                elif getattr(bloc, "type", None) == "text":
+                    morceaux.append(bloc.text or "")
+                elif getattr(bloc, "type", None) == "tool_use":
+                    morceaux.append("APPEL_OUTIL " + json.dumps({
+                        "id": bloc.id, "nom": bloc.name, "arguments": bloc.input or {}},
+                        ensure_ascii=False))
+            lignes.append(f"{role}: " + "\n".join(morceaux))
+        return "Conversation Jarvis a poursuivre :\n" + "\n\n".join(lignes)
+
+    @staticmethod
+    def _outils(outils):
+        return [{
+            "type": "function",
+            "name": o["name"],
+            "description": o.get("description", ""),
+            "inputSchema": o.get("input_schema", {"type": "object", "properties": {}}),
+        } for o in outils]
+
+    def repondre(self, systeme, historique, outils):
+        textes, appels = self.client.tour(
+            systeme, self._historique(historique), self._outils(outils),
+            modele=self.modele, effort=self.effort, timeout=self.timeout)
+        blocs = [Bloc("text", text=t) for t in textes if t.strip()]
+        blocs.extend(Bloc("tool_use", id=a["id"], name=a["name"], input=a["input"])
+                     for a in appels)
+        return Reponse("tool_use" if appels else "end", blocs)
 
 
 # --------------------------------------------------------------- Ollama (local)
@@ -212,14 +286,16 @@ def llm():
     """Provider LLM courant selon le mode (local | hybride | qualite).
 
     - local   : Ollama.
-    - hybride : Claude, modele economique (anthropic.modele) — reflexes + vision.
-    - qualite : Claude, modele fort (anthropic.modele_qualite)."""
+    - hybride : Codex OAuth (ou Claude si codex.actif=false).
+    - qualite : Codex OAuth (ou Claude si codex.actif=false)."""
     global _LLM
     if _LLM is None:
         from core.routage import mode_actuel
         m = mode_actuel()
         if m == "local":
             _LLM = OllamaProvider()
+        elif reglage("codex.actif", True):
+            _LLM = CodexProvider(reglage("codex.modele", "auto"))
         elif m == "qualite":
             _LLM = ClaudeProvider(reglage("anthropic.modele_qualite",
                                           "claude-sonnet-4-5"))

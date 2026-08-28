@@ -7,6 +7,7 @@ et chaque integration configuree) avec des marques claires et comment corriger.
 Ne lance PAS l'assistant : il se contente de verifier.
 """
 import importlib
+import shutil
 import socket
 import sys
 from pathlib import Path
@@ -148,7 +149,23 @@ def v_llm():
         except Exception:
             ko("Ollama injoignable", "installe/lance Ollama (ollama.com), puis 'ollama serve'.")
     else:
-        if reglage("anthropic.cle", ""):
+        if reglage("codex.actif", True):
+            executable = reglage("codex.executable", "codex")
+            if shutil.which(executable) or Path(executable).is_file():
+                try:
+                    from core.codex_app_server import CodexAppServer
+                    c = CodexAppServer(executable, 10, reglage("codex.home", "logs/codex-home"))
+                    compte = c.compte(connecter=False)
+                    c.fermer()
+                    if compte:
+                        ok("Codex installe et compte ChatGPT connecte")
+                    else:
+                        warn("Codex installe ; OAuth ChatGPT a terminer au premier lancement")
+                except Exception as e:
+                    warn(f"Codex installe mais App Server indisponible : {e}")
+            else:
+                ko("Codex introuvable", "installe Codex puis verifie codex.executable.")
+        elif reglage("anthropic.cle", ""):
             ok("cle Anthropic (Claude) presente")
         else:
             ko("cle Anthropic absente", "mets anthropic.cle (console.anthropic.com) dans config.yaml.")

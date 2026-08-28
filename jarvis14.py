@@ -567,7 +567,7 @@ def _executer_outils(blocs):
 
 
 def repondre(historique):
-    """Interroge Claude et boucle sur les appels d'outils jusqu'a la reponse.
+    """Interroge le LLM et boucle sur les appels d'outils jusqu'a la reponse.
 
     Pour les outils lents, prononce un accuse de reception en parallele. Pour
     les outils a confirmation, prononce l'annonce et renvoie SENTINEL_CONFIRM
@@ -580,7 +580,10 @@ def repondre(historique):
         if mode == "local":
             return ("Le modele local (Ollama) n'est pas joignable. Verifie qu'Ollama "
                     "tourne et que le modele est telecharge.")
-        return "Ma cle Claude n'est pas configuree."
+        if fournisseur.nom == "Codex":
+            return ("Codex n'est pas connecte. Lance la commande codex, choisis "
+                    "Sign in with ChatGPT, puis redemarre Jarvis.")
+        return "Le fournisseur cloud n'est pas configure."
 
     fil_accuse = None
     accuse_donne = False
@@ -1131,8 +1134,8 @@ def main():
             print("ATTENTION : Ollama injoignable. Lance 'ollama serve' et verifie le "
                   "modele (config ollama.modele).")
         else:
-            print("ATTENTION : aucune cle Claude dans config.yaml (anthropic.cle). "
-                  "L'assistant ne pourra pas repondre.")
+            print(f"ATTENTION : le fournisseur {_fournisseur.nom} n'est pas disponible. "
+                  "Verifie sa configuration puis redemarre Jarvis.")
 
     _hud("demarrer")
     _modele_hud = getattr(_fournisseur, "modele", "")
