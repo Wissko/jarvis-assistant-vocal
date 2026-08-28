@@ -82,7 +82,7 @@ interruption:                  # couper Jarvis quand tu dis "attends/stop/arrete
 
 assistant:
   nom: "Lowkey"
-  phrase_activation: "Lowkey protocole Alpha"
+  phrase_activation: "Lowkey"
   activation_whisper: true    # phrase personnalisee, 100 % locale
   activation_openwakeword: false # ancien « Hey Jarvis » desactive
   activation_silence_fin: 0.55

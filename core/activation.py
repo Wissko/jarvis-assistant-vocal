@@ -14,13 +14,15 @@ def normaliser_activation(texte):
     return " ".join(re.findall(r"[a-z0-9]+", texte))
 
 
-def est_phrase_activation(texte, phrase="Lowkey protocole Alpha"):
+def est_phrase_activation(texte, phrase="Lowkey"):
     """Tolere les graphies que Whisper produit pour la phrase franco-anglaise."""
     entendu = normaliser_activation(texte)
     cible = normaliser_activation(phrase)
     if cible and cible in entendu:
         return True
     lowkey = ("lowkey", "low key", "loki", "lo key", "loqui", "low ki")
+    if cible in {"lowkey", "low key", "loki"}:
+        return any(mot in entendu for mot in lowkey)
     protocole = ("protocole", "protocol", "protocoles")
     alpha = ("alpha", "alfa")
     return (any(mot in entendu for mot in lowkey)
