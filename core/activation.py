@@ -20,7 +20,10 @@ def est_phrase_activation(texte, phrase="Lowkey"):
     cible = normaliser_activation(phrase)
     if cible and cible in entendu:
         return True
-    lowkey = ("lowkey", "low key", "loki", "lo key", "loqui", "low ki")
+    lowkey = (
+        "lowkey", "low key", "loki", "lo key", "loqui", "low ki",
+        "lucky", "looky",
+    )
     if cible in {"lowkey", "low key", "loki"}:
         return any(mot in entendu for mot in lowkey)
     protocole = ("protocole", "protocol", "protocoles")
