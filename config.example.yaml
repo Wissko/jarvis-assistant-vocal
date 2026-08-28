@@ -18,7 +18,7 @@ ollama:                        # mode local : modele de langage local (http://lo
 
 codex:                         # modes hybride/qualite : abonnement ChatGPT, sans cle API
   actif: true
-  executable: "codex"
+  executable: "codex"         # auto-detecte aussi le Codex inclus dans l'app Windows
   home: "logs/codex-home"      # OAuth Codex dedie a Jarvis (ignore par Git)
   modele: "auto"              # auto = meilleur modele disponible pour ton compte
   reasoning_effort: "medium"  # low | medium | high | xhigh
