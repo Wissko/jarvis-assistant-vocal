@@ -1,8 +1,8 @@
 """
 Assistant vocal local, avec mot d'activation et actions.
 
-Dites « Hey Jarvis », parlez, taisez-vous. Il repond et agit.
-Chaine : openWakeWord -> faster-whisper -> Claude (+ outils) -> ElevenLabs/SAPI
+Dites « Lowkey, protocole Alpha », parlez, taisez-vous. Il repond et agit.
+Chaine : activation locale -> faster-whisper -> LLM (+ outils) -> TTS
 
 Architecture : les outils vivent dans tools/ (auto-decouverts via core.registre),
 les reglages et secrets dans config.yaml (via core.config).
@@ -36,6 +36,7 @@ from faster_whisper import WhisperModel
 from openwakeword.model import Model as WakeModel
 
 from core import config, journal, memoire, personnalite, registre, voix
+from core.activation import DetecteurActivationWhisper
 from core.util import sans_accents
 from tools.lumieres import allumer_si_nuit, charger_pieces_hue
 
@@ -54,6 +55,12 @@ def _haut_parleur():
 # Le choix du modele LLM (Claude/Ollama) et de la voix (ElevenLabs/Piper) est gere
 # par les providers (core/llm.py, core/tts.py), selon config.yaml (mode: cloud|local).
 MODELE_WHISPER = config.reglage("whisper.modele", "medium")
+LANGUE_WHISPER = config.reglage("whisper.langue", None)
+NOM_ASSISTANT = config.reglage("assistant.nom", "Lowkey")
+PHRASE_ACTIVATION = config.reglage(
+    "assistant.phrase_activation", "Lowkey protocole Alpha")
+ACTIVATION_WHISPER = config.reglage("assistant.activation_whisper", True)
+ACTIVATION_OPENWAKEWORD = config.reglage("assistant.activation_openwakeword", False)
 
 TAUX = 16000               # taux de TRAITEMENT : openWakeWord ET faster-whisper exigent 16 kHz
 BLOC = 1280                # 80 ms @ 16 kHz (trame attendue par openWakeWord)
@@ -92,6 +99,7 @@ SENTINEL_CONFIRM = "\x00confirmation\x00"
 # Regles de base (format vocal, outils). La personnalite (persona) est ajoutee
 # devant, et la memoire derriere, par _refaire_systeme.
 SYSTEME_BASE = (
+    f"Tu es {NOM_ASSISTANT}, l'assistant personnel prive de l'utilisateur. "
     "Tes reponses sont lues a voix haute : reponds en une a deux phrases maximum "
     "(une seule si possible), sans listes, sans titres, sans asterisques ni emoji. "
     "Parle naturellement, en francais. Va a l'essentiel. Ne pose jamais deux fois "
@@ -368,7 +376,8 @@ def _dire_sapi(texte):
 RESIDUS = (
     "avis", "service", "jarvis", "hey jarvis", "harvis", "arvis",
     "javis", "charvis", "chavis", "davis", "y a vis", "a vis",
-    "la vis", "et vis", "ervice", "servi", "sers vis",
+    "la vis", "et vis", "ervice", "servi", "sers vis", "lowkey",
+    "low key", "loki", "lowkey protocole alpha", "lowkey protocol alpha",
 )
 
 # Ce que Whisper invente quand il n'entend que du silence.
@@ -987,7 +996,7 @@ def _tronquer(historique):
 
 def traiter(audio, whisper, historique, flux, reveil):
     """Transcrit, repond, parle. Renvoie True si on doit enchainer (relance)."""
-    segments, _ = whisper.transcribe(audio, language="fr", beam_size=5)
+    segments, _ = whisper.transcribe(audio, language=LANGUE_WHISPER, beam_size=5)
     question = nettoyer(" ".join(s.text for s in segments).strip())
 
     if not question or len(question) < 3:
@@ -1014,7 +1023,7 @@ def traiter(audio, whisper, historique, flux, reveil):
     _hud("dire_jarvis", texte)
     _afficher_overlay(texte)
     _hud_status()
-    print(f"  Jarvis : {texte}\n")
+    print(f"  {NOM_ASSISTANT} : {texte}\n")
     _tronquer(historique)
     return relancer
 
@@ -1081,11 +1090,13 @@ def main():
     # Les appels telephoniques reutilisent ce Whisper pour transcrire les reponses.
     from tools.appels import definir_transcripteur
     definir_transcripteur(lambda chemin: " ".join(
-        s.text for s in whisper.transcribe(chemin, language="fr", beam_size=5)[0]).strip())
+        s.text for s in whisper.transcribe(
+            chemin, language=LANGUE_WHISPER, beam_size=5)[0]).strip())
     # V2 (conversation temps reel) : transcription d'un tableau audio (16kHz float32).
     from tools.appel_direct import definir_transcripteur_direct
     definir_transcripteur_direct(lambda audio: " ".join(
-        s.text for s in whisper.transcribe(audio, language="fr", beam_size=1)[0]).strip())
+        s.text for s in whisper.transcribe(
+            audio, language=LANGUE_WHISPER, beam_size=1)[0]).strip())
 
     charger_pieces_hue()
     allumer_si_nuit()
@@ -1233,8 +1244,20 @@ def main():
         except Exception:
             LOG.exception("overlay: demarrage")
 
-    print('\nPret. Dites "Hey Jarvis". Ctrl+C pour quitter.\n')
-    print('Vous pouvez le couper en redisant "Hey Jarvis" pendant qu\'il parle.\n')
+    def _transcrire_activation(audio):
+        segments, _ = whisper.transcribe(
+            audio, language=None, beam_size=1, condition_on_previous_text=False)
+        return " ".join(s.text for s in segments).strip()
+
+    detecteur_activation = DetecteurActivationWhisper(
+        _transcrire_activation, PHRASE_ACTIVATION,
+        SEUIL_PAROLE_SUR, SEUIL_SILENCE,
+        config.reglage("assistant.activation_silence_fin", 0.55),
+        config.reglage("assistant.activation_duree_max", 4.5), TAUX,
+    ) if ACTIVATION_WHISPER else None
+
+    print(f'\nPret. Dites "{PHRASE_ACTIVATION}". Ctrl+C pour quitter.\n')
+    print(f'{NOM_ASSISTANT} comprend les commandes en francais et en anglais.\n')
 
     # Scene "au demarrage" : jouee UNE fois par jour, au premier lancement (musique
     # + lumieres selon l'heure + accueil vocal / brief Hermes). En tache de fond.
@@ -1261,10 +1284,19 @@ def main():
                 _hud("etat", "veille")
                 _hud("niveau", _niv_hud(bloc))
 
-                scores = reveil.predict((bloc * 32767).astype(np.int16))
-                if max(scores.values()) < SEUIL_REVEIL:
+                reveille = False
+                if ACTIVATION_OPENWAKEWORD:
+                    scores = reveil.predict((bloc * 32767).astype(np.int16))
+                    reveille = max(scores.values()) >= SEUIL_REVEIL
+                if not reveille and detecteur_activation is not None:
+                    reveille = detecteur_activation.ajouter(bloc)
+                    if reveille:
+                        print(f"  [activation] {detecteur_activation.derniere_transcription}")
+                if not reveille:
                     continue
                 reveil.reset()
+                if detecteur_activation is not None:
+                    detecteur_activation.reset()
 
             enchainer = False
             _hud("etat", "ecoute")
@@ -1296,3 +1328,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

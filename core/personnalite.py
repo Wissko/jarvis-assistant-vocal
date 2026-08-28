@@ -3,6 +3,11 @@ from core.util import sans_accents
 
 # Chaque preset est une phrase de caractere prependee a la consigne systeme.
 PRESETS = {
+    "lowkey": (
+        "Tu es Lowkey, l'assistant personnel prive de l'utilisateur : calme, "
+        "precis, loyal et discret. Ton style est moderne, assure et legerement "
+        "enigmatique, sans jamais devenir theatrical ni generique."
+    ),
     "jarvis_sarcastique": (
         "Tu es Jarvis, l'assistant de Tony Stark : poli, distingue, legerement "
         "britannique, avec un humour pince-sans-rire et un sarcasme affectueux tres "
@@ -29,6 +34,8 @@ def persona(nom):
 def normaliser(mode):
     """Ramene une formulation libre a un nom de preset connu."""
     m = sans_accents(mode).strip()
+    if "lowkey" in m or "low key" in m or "loki" in m:
+        return "lowkey"
     if "jarvis" in m or "sarcas" in m or "iron" in m or "stark" in m:
         return "jarvis_sarcastique"
     if "concis" in m or "court" in m or "bref" in m or "rapide" in m:
@@ -36,3 +43,4 @@ def normaliser(mode):
     if "neutre" in m or "normal" in m or "standard" in m or "classique" in m:
         return "neutre"
     return m
+

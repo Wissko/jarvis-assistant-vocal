@@ -66,6 +66,7 @@ audio:
 
 whisper:
   modele: "medium"
+  langue: null                 # null = detection automatique francais/anglais
 
 interruption:                  # couper Jarvis quand tu dis "attends/stop/arrete" par-dessus
   facteur: 1.8                 # tu dois parler ~1.8x plus fort que l'echo de Jarvis (baisse si ca ne coupe pas)
@@ -74,9 +75,15 @@ interruption:                  # couper Jarvis quand tu dis "attends/stop/arrete
   debug: false                 # true = affiche niv/base/seuil + ce qu'il entend (pour calibrer)
 
 assistant:
+  nom: "Lowkey"
+  phrase_activation: "Lowkey protocole Alpha"
+  activation_whisper: true    # phrase personnalisee, 100 % locale
+  activation_openwakeword: false # ancien « Hey Jarvis » desactive
+  activation_silence_fin: 0.55
+  activation_duree_max: 4.5
   duree_suite: 10              # secondes d'ecoute apres une reponse
   piece_nuit: "chambre"        # piece allumee au demarrage s'il fait nuit ("" pour desactiver)
-  personnalite: "jarvis_sarcastique"   # jarvis_sarcastique | neutre | concis
+  personnalite: "lowkey"      # lowkey | jarvis_sarcastique | neutre | concis
                                # (modifiable a la voix : "passe en mode neutre")
   scene_extinction: "off"      # scene lumieres jouee AVANT d'eteindre le PC ("eteins le PC")
   delai_extinction: 30         # secondes avant l'arret (annulable : "annule l'extinction")
