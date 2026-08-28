@@ -1269,9 +1269,11 @@ def main():
 
     detecteur_activation = DetecteurActivationWhisper(
         _transcrire_activation, PHRASE_ACTIVATION,
-        SEUIL_PAROLE_SUR, SEUIL_SILENCE,
+        config.reglage("assistant.activation_seuil_parole", 0.003),
+        config.reglage("assistant.activation_seuil_silence", 0.0025),
         config.reglage("assistant.activation_silence_fin", 0.55),
         config.reglage("assistant.activation_duree_max", 4.5), TAUX,
+        config.reglage("assistant.activation_duree_parole_min", 0.2),
     ) if ACTIVATION_WHISPER else None
 
     print(f'\nPret. Dites "{PHRASE_ACTIVATION}". Ctrl+C pour quitter.\n')
@@ -1308,8 +1310,10 @@ def main():
                     reveille = max(scores.values()) >= SEUIL_REVEIL
                 if not reveille and detecteur_activation is not None:
                     reveille = detecteur_activation.ajouter(bloc)
-                    if reveille:
-                        print(f"  [activation] {detecteur_activation.derniere_transcription}")
+                    if detecteur_activation.nouvelle_transcription:
+                        entendu = detecteur_activation.derniere_transcription or "(rien)"
+                        LOG.info("activation entendue=%r reconnue=%s", entendu, reveille)
+                        print(f"  [veille] entendu : {entendu}")
                 if not reveille:
                     continue
                 reveil.reset()
