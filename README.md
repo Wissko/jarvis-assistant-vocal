@@ -8,7 +8,7 @@
 ![Mode](https://img.shields.io/badge/mode-cloud%20%7C%20local-orange)
 
 Ton assistant personnel français/anglais qui tourne **sur ta machine**. Dis
-*« Lowkey, protocole Alpha »*,
+*« Lowkey »*,
 parle naturellement : il raisonne avec un LLM, utilise une boîte à outils extensible
 (domotique, PC, web, téléphone…) et te répond à voix haute. Deux modes au choix, en
 une ligne de config : **cloud** (Claude + ElevenLabs) ou **100 % local hors ligne**
@@ -66,7 +66,7 @@ outils sûrs, écrit seulement des brouillons).
 
 ```mermaid
 flowchart LR
-    Mic([🎙️ Micro]) --> WW[Activation locale<br/>« Lowkey, protocole Alpha »]
+    Mic([🎙️ Micro]) --> WW[Activation locale<br/>« Lowkey »]
     WW --> STT[faster-whisper<br/>STT — local]
     STT --> LLM{{LLM<br/>Claude ☁️ OU Ollama 🏠}}
     LLM <-->|appels d'outils| TOOLS[🧰 Outils]
@@ -119,7 +119,7 @@ copy config.example.yaml config.yaml      # puis remplis ce dont tu as besoin
 uv run python jarvis14.py
 ```
 
-Dis **« Lowkey, protocole Alpha »**. En mode hybride/qualité, Lowkey utilise la
+Dis **« Lowkey »**. En mode hybride/qualité, Lowkey utilise la
 connexion ChatGPT de Codex ; en mode local, il utilise Ollama. Tout le reste est optionnel.
 
 Débutant complet ? Vois **[INSTALL_WITH_AI.md](INSTALL_WITH_AI.md)** — à coller dans

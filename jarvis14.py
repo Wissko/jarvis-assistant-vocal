@@ -1,7 +1,7 @@
 """
 Assistant vocal local, avec mot d'activation et actions.
 
-Dites « Lowkey, protocole Alpha », parlez, taisez-vous. Il repond et agit.
+Dites « Lowkey », parlez, taisez-vous. Il repond et agit.
 Chaine : activation locale -> faster-whisper -> LLM (+ outils) -> TTS
 
 Architecture : les outils vivent dans tools/ (auto-decouverts via core.registre),
@@ -58,7 +58,7 @@ MODELE_WHISPER = config.reglage("whisper.modele", "medium")
 LANGUE_WHISPER = config.reglage("whisper.langue", None)
 NOM_ASSISTANT = config.reglage("assistant.nom", "Lowkey")
 PHRASE_ACTIVATION = config.reglage(
-    "assistant.phrase_activation", "Lowkey protocole Alpha")
+    "assistant.phrase_activation", "Lowkey")
 ACTIVATION_WHISPER = config.reglage("assistant.activation_whisper", True)
 ACTIVATION_OPENWAKEWORD = config.reglage("assistant.activation_openwakeword", False)
 _LANGUE_COURANTE = "fr"
