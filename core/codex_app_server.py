@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import queue
 import shutil
 import subprocess
@@ -21,9 +22,37 @@ class CodexErreur(RuntimeError):
     pass
 
 
+def trouver_executable_codex(executable="codex"):
+    """Resout Codex dans le PATH ou dans l'installation de l'app Windows.
+
+    L'application Codex range son CLI dans un sous-dossier versionne. Chercher
+    ce dossier a chaque creation du client evite de figer un chemin qui devient
+    invalide a la prochaine mise a jour de l'application.
+    """
+    demande = os.path.expandvars(os.path.expanduser(str(executable or "codex")))
+    trouve = shutil.which(demande)
+    if trouve:
+        return os.path.abspath(trouve)
+    if os.path.isfile(demande):
+        return os.path.abspath(demande)
+
+    if os.name == "nt" and demande.lower() in {"codex", "codex.exe"}:
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data:
+            dossier_bin = Path(local_app_data) / "OpenAI" / "Codex" / "bin"
+            candidats = [dossier_bin / "codex.exe"]
+            candidats.extend(dossier_bin.glob("*/codex.exe"))
+            existants = [p for p in candidats if p.is_file()]
+            if existants:
+                # Une mise a jour peut laisser plusieurs versions sur disque.
+                return str(max(existants, key=lambda p: p.stat().st_mtime).resolve())
+    return demande
+
+
 class CodexAppServer:
     def __init__(self, executable="codex", login_timeout=180, codex_home=""):
-        self.executable = executable or "codex"
+        self.executable_demande = executable or "codex"
+        self.executable = trouver_executable_codex(self.executable_demande)
         self.login_timeout = int(login_timeout or 180)
         self.codex_home = os.path.abspath(codex_home) if codex_home else ""
         self._processus = None
@@ -32,13 +61,14 @@ class CodexAppServer:
         self._verrou = threading.RLock()
 
     def disponible(self):
-        return bool(shutil.which(self.executable) or os.path.isfile(self.executable))
+        return bool(os.path.isfile(self.executable) or shutil.which(self.executable))
 
     def demarrer(self):
         if self._processus and self._processus.poll() is None:
             return
         if not self.disponible():
-            raise CodexErreur(f"Executable Codex introuvable : {self.executable}")
+            raise CodexErreur(
+                f"Executable Codex introuvable : {self.executable_demande}")
         drapeaux = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         environnement = os.environ.copy()
         if self.codex_home:
@@ -205,3 +235,4 @@ class CodexAppServer:
                         raise CodexErreur(str(fini.get("error") or "tour Codex en echec"))
                     return textes, appels
         raise CodexErreur("Delai depasse pendant la reponse Codex")
+
