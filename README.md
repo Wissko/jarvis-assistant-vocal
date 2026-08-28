@@ -1,4 +1,4 @@
-# 🤖 Jarvis — assistant vocal local
+# 🤖 Lowkey — assistant personnel vocal
 
 *[English version](README.en.md)*
 
@@ -7,7 +7,8 @@
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![Mode](https://img.shields.io/badge/mode-cloud%20%7C%20local-orange)
 
-Un assistant vocal en français qui tourne **sur ta machine**. Dis *« Hey Jarvis »*,
+Ton assistant personnel français/anglais qui tourne **sur ta machine**. Dis
+*« Lowkey, protocole Alpha »*,
 parle naturellement : il raisonne avec un LLM, utilise une boîte à outils extensible
 (domotique, PC, web, téléphone…) et te répond à voix haute. Deux modes au choix, en
 une ligne de config : **cloud** (Claude + ElevenLabs) ou **100 % local hors ligne**
@@ -65,7 +66,7 @@ outils sûrs, écrit seulement des brouillons).
 
 ```mermaid
 flowchart LR
-    Mic([🎙️ Micro]) --> WW[openWakeWord<br/>« Hey Jarvis »]
+    Mic([🎙️ Micro]) --> WW[Activation locale<br/>« Lowkey, protocole Alpha »]
     WW --> STT[faster-whisper<br/>STT — local]
     STT --> LLM{{LLM<br/>Claude ☁️ OU Ollama 🏠}}
     LLM <-->|appels d'outils| TOOLS[🧰 Outils]
@@ -118,8 +119,8 @@ copy config.example.yaml config.yaml      # puis remplis ce dont tu as besoin
 uv run python jarvis14.py
 ```
 
-Dis **« Hey Jarvis »**. Le seul réglage strictement requis est `anthropic.cle` (mode
-cloud) ou un modèle local (mode local). Tout le reste est optionnel.
+Dis **« Lowkey, protocole Alpha »**. En mode hybride/qualité, Lowkey utilise la
+connexion ChatGPT de Codex ; en mode local, il utilise Ollama. Tout le reste est optionnel.
 
 Débutant complet ? Vois **[INSTALL_WITH_AI.md](INSTALL_WITH_AI.md)** — à coller dans
 n'importe quelle IA gratuite, elle t'installe tout pas à pas. Ou lance l'installateur
