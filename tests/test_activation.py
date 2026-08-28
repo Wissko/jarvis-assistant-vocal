@@ -7,7 +7,7 @@ from core.activation import DetecteurActivationWhisper, est_phrase_activation
 
 class PhraseActivationTests(unittest.TestCase):
     def test_variantes_francaises_et_anglaises(self):
-        for texte in ("Lowkey", "Low key", "Loki"):
+        for texte in ("Lowkey", "Low key", "Loki", "Lucky", "Looky"):
             with self.subTest(texte=texte):
                 self.assertTrue(est_phrase_activation(texte))
 
