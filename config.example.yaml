@@ -46,6 +46,17 @@ elevenlabs:                    # facultatif ; sans cle, Jarvis garde la voix Win
   modele: "eleven_flash_v2_5"
   langue: "auto"               # reprend automatiquement la langue detectee (fr/en)
 
+chatterbox:                    # voix neuronale locale naturelle (serveur separe)
+  actif: false                 # true = prioritaire sur ElevenLabs/Piper
+  hote: "http://127.0.0.1:8004"
+  dossier: "../chatterbox-lowkey"
+  voix_fr: "Henry.wav"         # meme timbre dans les deux langues
+  voix_en: "Henry.wav"
+  vitesse: 0.95                # diction posee, style assistant haut de gamme
+  seed: 108                    # stabilise le timbre entre les reponses
+  timeout: 120                 # premier chargement du modele plus long
+  demarrage_auto: true
+
 voix_windows:                  # repli local immediat, sans cle API
   fr: "Microsoft Paul"         # voix masculine francaise
   en: "Microsoft Mark"         # voix masculine anglaise

@@ -4,6 +4,7 @@ Chaque provider expose `synthetiser(texte, langue)` qui renvoie (audio_int16, fr
 ou None. jarvis14 se charge de JOUER l'audio (avec sa gestion d'interruption) et
 retombe sur la voix Windows (SAPI) si le provider renvoie None.
 
+  - ChatterboxProvider : local, voix humaine bilingue via le serveur Chatterbox.
   - ElevenLabsProvider : cloud (qualite max), voix configurable.
   - PiperProvider      : local, 100% offline, voix francaise Piper (.onnx).
 
@@ -17,6 +18,9 @@ choix pour le francais aujourd'hui.
 """
 import json
 import logging
+import os
+import subprocess
+import time
 import urllib.request
 from pathlib import Path
 
@@ -53,6 +57,101 @@ class ProviderTTS:
     def synthetiser(self, texte, langue=None):
         """Renvoie (numpy int16 mono, frequence_hz) ou None si indisponible."""
         return None
+
+
+# --------------------------------------------------------------- Chatterbox
+
+class ChatterboxProvider(ProviderTTS):
+    """Voix locale naturelle fournie par Chatterbox-TTS-Server."""
+
+    nom = "Chatterbox"
+    _processus = None
+
+    def __init__(self):
+        self.actif = bool(reglage("chatterbox.actif", False))
+        self.hote = str(reglage("chatterbox.hote", "http://127.0.0.1:8004")).rstrip("/")
+        self.voix_fr = str(reglage("chatterbox.voix_fr", "Henry.wav"))
+        self.voix_en = str(reglage("chatterbox.voix_en", "Henry.wav"))
+        self.vitesse = float(reglage("chatterbox.vitesse", 0.95))
+        self.seed = int(reglage("chatterbox.seed", 108))
+        self.timeout = float(reglage("chatterbox.timeout", 120))
+        self.demarrage_auto = bool(reglage("chatterbox.demarrage_auto", True))
+        dossier = reglage("chatterbox.dossier", "../chatterbox-lowkey")
+        p = Path(str(dossier))
+        self.dossier = p if p.is_absolute() else (_RACINE / p).resolve()
+
+    def disponible(self):
+        return self.actif
+
+    def _parametres(self, langue=None):
+        anglais = str(langue or "").lower().startswith("en")
+        return (self.voix_en if anglais else self.voix_fr,
+                "en" if anglais else "fr")
+
+    def _serveur_repond(self):
+        try:
+            with urllib.request.urlopen(f"{self.hote}/v1/audio/voices", timeout=1.5):
+                return True
+        except Exception:
+            return False
+
+    def _demarrer_si_necessaire(self):
+        if self._serveur_repond():
+            return True
+        if not self.demarrage_auto:
+            return False
+        python = self.dossier / "python_embedded" / "python.exe"
+        serveur = self.dossier / "server.py"
+        if not python.exists() or not serveur.exists():
+            LOG.warning("Chatterbox non installe dans %s", self.dossier)
+            return False
+        try:
+            options = {"cwd": str(self.dossier), "stdout": subprocess.DEVNULL,
+                       "stderr": subprocess.DEVNULL}
+            if os.name == "nt":
+                options["creationflags"] = subprocess.CREATE_NO_WINDOW
+            type(self)._processus = subprocess.Popen(
+                [str(python), str(serveur)], **options)
+            limite = time.monotonic() + self.timeout
+            while time.monotonic() < limite:
+                if self._serveur_repond():
+                    return True
+                if type(self)._processus.poll() is not None:
+                    break
+                time.sleep(1)
+        except Exception as e:
+            LOG.warning("demarrage Chatterbox impossible: %s", e)
+        return False
+
+    def synthetiser(self, texte, langue=None):
+        if not self.disponible() or not self._demarrer_si_necessaire():
+            return None
+        try:
+            import miniaudio
+            import numpy as np
+            voix, code = self._parametres(langue)
+            charge = {
+                "model": "chatterbox-multilingual",
+                "input": texte,
+                "voice": voix,
+                "response_format": "wav",
+                "speed": self.vitesse,
+                "seed": self.seed,
+                "language": code,
+            }
+            requete = urllib.request.Request(
+                f"{self.hote}/v1/audio/speech",
+                data=json.dumps(charge).encode("utf-8"), method="POST",
+                headers={"Content-Type": "application/json", "Accept": "audio/wav"})
+            with urllib.request.urlopen(requete, timeout=self.timeout) as reponse:
+                wav = reponse.read()
+            decode = miniaudio.decode(
+                wav, nchannels=1, sample_rate=24000,
+                output_format=miniaudio.SampleFormat.SIGNED16)
+            return np.frombuffer(decode.samples, dtype=np.int16), 24000
+        except Exception as e:
+            print(f"  [Chatterbox] indisponible ({e}), repli voix Windows.")
+            return None
 
 
 # --------------------------------------------------------------- ElevenLabs
@@ -232,13 +331,14 @@ _TTS = None
 
 
 def tts():
-    """Provider TTS courant : local -> Piper/Kokoro (config voix_locale) ;
-    hybride/qualite -> ElevenLabs."""
+    """Provider TTS courant, avec priorite a Chatterbox quand il est active."""
     global _TTS
     if _TTS is None:
         from core.routage import mode_actuel
         m = mode_actuel()
-        if m == "local":
+        if reglage("chatterbox.actif", False):
+            _TTS = ChatterboxProvider()
+        elif m == "local":
             moteur = (reglage("voix_locale", "piper") or "piper").lower()
             _TTS = KokoroProvider() if moteur == "kokoro" else PiperProvider()
         else:
