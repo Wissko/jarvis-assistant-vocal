@@ -61,6 +61,7 @@ PHRASE_ACTIVATION = config.reglage(
     "assistant.phrase_activation", "Lowkey protocole Alpha")
 ACTIVATION_WHISPER = config.reglage("assistant.activation_whisper", True)
 ACTIVATION_OPENWAKEWORD = config.reglage("assistant.activation_openwakeword", False)
+_LANGUE_COURANTE = "fr"
 
 TAUX = 16000               # taux de TRAITEMENT : openWakeWord ET faster-whisper exigent 16 kHz
 BLOC = 1280                # 80 ms @ 16 kHz (trame attendue par openWakeWord)
@@ -102,7 +103,8 @@ SYSTEME_BASE = (
     f"Tu es {NOM_ASSISTANT}, l'assistant personnel prive de l'utilisateur. "
     "Tes reponses sont lues a voix haute : reponds en une a deux phrases maximum "
     "(une seule si possible), sans listes, sans titres, sans asterisques ni emoji. "
-    "Parle naturellement, en francais. Va a l'essentiel. Ne pose jamais deux fois "
+    "Reponds toujours dans la langue de la derniere demande : francais si elle est "
+    "en francais, anglais si elle est en anglais. Va a l'essentiel. Ne pose jamais deux fois "
     "la meme question et ne redemande pas une confirmation deja demandee. "
     "Tu disposes d'outils pour agir sur l'ordinateur : utilise-les quand "
     "l'utilisateur demande une action, et confirme brievement ce que tu as fait. "
@@ -315,20 +317,20 @@ def dire(texte, interruptible=True):
     if _INTERRUPTION.is_set():
         return
     from core.tts import tts
-    resultat = tts().synthetiser(texte)
+    resultat = tts().synthetiser(texte, langue=_LANGUE_COURANTE)
     if interruptible:
         _PARLE.set()      # a partir d'ici Jarvis parle : on peut l'interrompre
     try:
         if resultat is not None:
             _jouer_audio(*resultat)
         else:
-            _dire_sapi(texte)
+            _dire_sapi(texte, _LANGUE_COURANTE)
     finally:
         _PARLE.clear()    # fin de la parole : plus d'interruption possible
 
 
-def _dire_sapi(texte):
-    """Synthese vocale Windows (SAPI), voix francaise si disponible.
+def _dire_sapi(texte, langue="fr"):
+    """Synthese Windows avec voix masculine francaise ou anglaise.
 
     Le texte est envoye au script PowerShell par l'entree standard, jamais dans
     -Command : une apostrophe francaise ne peut pas casser le littoral. Le flux
@@ -339,16 +341,23 @@ def _dire_sapi(texte):
     if _INTERRUPTION.is_set():
         return
 
+    from core.tts import parametres_voix_windows
+    code, nom_voix, debit, volume = parametres_voix_windows(langue)
+    nom_voix = str(nom_voix or "").replace("'", "''")
+    culture = "en*" if code == "en" else "fr*"
     script = (
         "[Console]::InputEncoding = [Text.Encoding]::UTF8; "
         "$t = [Console]::In.ReadToEnd(); "
         "Add-Type -AssemblyName System.Speech; "
         "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
-        "$fr = $s.GetInstalledVoices() | "
-        "Where-Object { $_.VoiceInfo.Culture.Name -like 'fr*' } | "
-        "Select-Object -First 1; "
-        "if ($fr) { $s.SelectVoice($fr.VoiceInfo.Name) }; "
-        "$s.Rate = 1; "
+        f"$pref = '{nom_voix}'; "
+        "$v = $s.GetInstalledVoices() | "
+        "Where-Object { $_.VoiceInfo.Name -eq $pref } | Select-Object -First 1; "
+        "if (-not $v) { $v = $s.GetInstalledVoices() | "
+        f"Where-Object {{ $_.VoiceInfo.Culture.Name -like '{culture}' -and "
+        "$_.VoiceInfo.Gender -eq 'Male' } | Select-Object -First 1; }; "
+        "if ($v) { $s.SelectVoice($v.VoiceInfo.Name) }; "
+        f"$s.Rate = {debit}; $s.Volume = {volume}; "
         "$s.Speak($t)"
     )
 
@@ -364,6 +373,7 @@ def _dire_sapi(texte):
         _, erreurs = processus.communicate(input=texte.encode("utf-8"))
         if processus.returncode and not _INTERRUPTION.is_set():
             details = (erreurs or b"").decode("utf-8", "replace").strip()
+            details = details.replace("\ufffd", "?")
             print(f"  [SAPI] echec (code {processus.returncode}) : {details}")
     finally:
         _PROCESSUS_PAROLE = None
@@ -391,12 +401,14 @@ HALLUCINATIONS = (
 MOTS_RELANCE = (
     "attends", "attend", "arrete", "arrete-toi", "arrete toi", "stop",
     "une seconde", "deux secondes", "minute", "pardon", "non non",
+    "wait", "hold on", "stop", "one second", "sorry",
 )
 
 # Mots qui coupent la parole et terminent (tu as fini, il se tait).
 MOTS_FIN = (
     "tais-toi", "tais toi", "chut", "silence", "ferme-la", "la ferme",
     "c'est bon", "ok merci", "d'accord merci", "laisse tomber",
+    "shut up", "be quiet", "that's all", "thanks", "never mind",
 )
 
 # Mots d'accord pour une confirmation vocale.
@@ -693,7 +705,7 @@ def charger_whisper():
 
     try:
         modele = WhisperModel(MODELE_WHISPER, device="cuda", compute_type="float16")
-        modele.transcribe(np.zeros(TAUX, dtype=np.float32), language="fr")
+        modele.transcribe(np.zeros(TAUX, dtype=np.float32), language=LANGUE_WHISPER)
         print(f"Whisper {MODELE_WHISPER} sur GPU.")
         return modele
     except Exception as e:
@@ -928,7 +940,8 @@ def repondre_en_ecoutant(historique, flux, reveil, whisper):
             tampon = []
             blocs_sur = 0
             try:
-                segments, _ = whisper.transcribe(extrait, language="fr", beam_size=1)
+                segments, _ = whisper.transcribe(
+                    extrait, language=_LANGUE_COURANTE, beam_size=1)
                 dit = " ".join(s.text for s in segments).strip()
             except Exception:
                 dit = ""
@@ -965,7 +978,8 @@ def _confirmer(interrompu, relancer, whisper, historique, flux):
                           attente_debut=float(config.reglage("assistant.attente_confirmation", 3.0)))
     reponse = ""
     if audio_conf is not None:
-        seg, _ = whisper.transcribe(audio_conf, language="fr", beam_size=5)
+        seg, _ = whisper.transcribe(
+            audio_conf, language=_LANGUE_COURANTE, beam_size=5)
         reponse = nettoyer(" ".join(s.text for s in seg).strip())
     print(f"  [confirmation] {reponse or '(rien)'}")
 
@@ -996,14 +1010,18 @@ def _tronquer(historique):
 
 def traiter(audio, whisper, historique, flux, reveil):
     """Transcrit, repond, parle. Renvoie True si on doit enchainer (relance)."""
-    segments, _ = whisper.transcribe(audio, language=LANGUE_WHISPER, beam_size=5)
+    global _LANGUE_COURANTE
+    segments, info = whisper.transcribe(audio, language=LANGUE_WHISPER, beam_size=5)
     question = nettoyer(" ".join(s.text for s in segments).strip())
+    detectee = getattr(info, "language", None)
+    if detectee:
+        _LANGUE_COURANTE = "en" if str(detectee).lower().startswith("en") else "fr"
 
     if not question or len(question) < 3:
         print("  (rien compris)\n")
         return False
 
-    print(f"  Vous : {question}")
+    print(f"  Vous [{_LANGUE_COURANTE.upper()}] : {question}")
     _hud("dire_vous", question)
     _hud("etat", "reflexion")
     historique.append({"role": "user", "content": question})
