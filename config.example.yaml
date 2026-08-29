@@ -52,7 +52,7 @@ chatterbox:                    # voix neuronale locale naturelle (serveur separe
   dossier: "../chatterbox-lowkey"
   voix_fr: "Lowkey-FR-Valet.wav" # voix francaise native, masculine et posee
   voix_en: "Henry.wav"         # voix britannique conservee pour l'anglais
-  vitesse: 0.95                # diction posee, style assistant haut de gamme
+  vitesse: 1.08                # plus reactive sans effet de voix acceleree
   seed: 108                    # stabilise le timbre entre les reponses
   timeout: 120                 # premier chargement du modele plus long
   demarrage_auto: true
