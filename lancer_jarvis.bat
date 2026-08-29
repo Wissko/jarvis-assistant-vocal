@@ -10,7 +10,7 @@ if %errorlevel% equ 42 exit /b 0
 git pull --ff-only 2>nul
 rem Precharge XTTS v2 en arriere-plan. Chatterbox reste le repli automatique.
 if exist "..\xtts-lowkey\.venv\Scripts\python.exe" (
-  powershell -NoProfile -WindowStyle Hidden -Command "if (-not (Get-NetTCPConnection -LocalPort 8020 -State Listen -ErrorAction SilentlyContinue)) { $env:COQUI_TOS_AGREED='1'; Start-Process -WindowStyle Hidden -FilePath '..\xtts-lowkey\.venv\Scripts\python.exe' -ArgumentList 'services\xtts_server.py' -WorkingDirectory '.' }"
+  powershell -NoProfile -WindowStyle Hidden -Command "$env:COQUI_TOS_AGREED='1'; $py=(Resolve-Path '..\xtts-lowkey\.venv\Scripts\python.exe').Path; $script=(Resolve-Path 'services\xtts_server.py').Path; $cwd=(Get-Location).Path; if (-not (Get-NetTCPConnection -LocalPort 8020 -State Listen -ErrorAction SilentlyContinue)) { Start-Process -WindowStyle Hidden -FilePath $py -ArgumentList $script -WorkingDirectory $cwd }; $fin=(Get-Date).AddSeconds(180); while((Get-Date) -lt $fin){ try { $r=Invoke-RestMethod 'http://127.0.0.1:8020/health' -TimeoutSec 2; if($r.loaded){exit 0} } catch {}; Start-Sleep -Seconds 1 }; exit 1"
 )
 if exist ".venv\Scripts\python.exe" (
   start "" /b ".venv\Scripts\python.exe" -m core.prechauffer_tts >nul 2>&1

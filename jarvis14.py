@@ -21,6 +21,25 @@ import wave
 from collections import deque
 from pathlib import Path
 
+# Une seconde copie chargerait un autre Whisper sur le GPU avant meme que le
+# serveur web detecte le port occupe. Le verrou est donc pris avant numpy,
+# faster-whisper et tous les imports lourds.
+_VERROU_PROCESSUS = None
+if os.name == "nt":
+    import msvcrt
+    _chemin_verrou = Path(__file__).resolve().parent / "logs" / "lowkey-process.lock"
+    _chemin_verrou.parent.mkdir(parents=True, exist_ok=True)
+    _VERROU_PROCESSUS = open(_chemin_verrou, "a+b")
+    if _chemin_verrou.stat().st_size == 0:
+        _VERROU_PROCESSUS.write(b"0")
+        _VERROU_PROCESSUS.flush()
+    _VERROU_PROCESSUS.seek(0)
+    try:
+        msvcrt.locking(_VERROU_PROCESSUS.fileno(), msvcrt.LK_NBLCK, 1)
+    except OSError:
+        print("Lowkey est deja en cours.", flush=True)
+        raise SystemExit(0)
+
 # Magasin de certificats Windows (comme git) au lieu du bundle certifi.
 # Indispensable si un antivirus/proxy intercepte le TLS, sinon les appels HTTPS
 # (Claude, Gmail) echouent avec "certificate verify failed". Avant tout reseau.
@@ -57,6 +76,7 @@ def _haut_parleur():
 # par les providers (core/llm.py, core/tts.py), selon config.yaml (mode: cloud|local).
 MODELE_WHISPER = config.reglage("whisper.modele", "medium")
 LANGUE_WHISPER = config.reglage("whisper.langue", None)
+WHISPER_COMPUTE = config.reglage("whisper.compute_type", "int8_float16")
 NOM_ASSISTANT = config.reglage("assistant.nom", "Lowkey")
 NOM_UTILISATEUR = config.reglage("utilisateur.appel", "Yose")
 PRONONCIATION_UTILISATEUR = config.reglage(
@@ -121,7 +141,8 @@ SYSTEME_BASE = (
     f"« {NOM_UTILISATEUR}, je vais... » en precisant l'action. Apres le resultat de "
     f"l'outil, ne repete pas ton intention : termine par une courte "
     f"formule comme « C'est fait, {NOM_UTILISATEUR}. » adaptee au resultat. "
-    "Tes reponses sont lues a voix haute : reponds en une a deux phrases maximum "
+    "Tes reponses sont lues a voix haute : reponds en une a deux phrases courtes "
+    "(idealement quinze mots maximum par phrase) "
     "(une seule si possible), sans listes, sans titres, sans asterisques ni emoji. "
     "Reponds toujours dans la langue de la derniere demande : francais si elle est "
     "en francais, anglais si elle est en anglais. Va a l'essentiel. Ne pose jamais deux fois "
@@ -330,10 +351,10 @@ def _jouer_audio_en_flux(morceaux, frequence, interruptible=True):
     commence = False
     flux = None
     try:
-        # XTTS genere a peu pres en temps reel : ce petit reservoir absorbe les
-        # variations GPU qui provoqueraient sinon des micro-coupures audibles.
+        # XTTS est un peu plus lent que le temps reel sur une RTX 3060 mobile :
+        # ce reservoir donne assez d'avance a la lecture pour rester continue.
         cible = int(frequence * max(0.0, float(
-            config.reglage("audio.tts_tampon_ms", 800))) / 1000)
+            config.reglage("audio.tts_tampon_ms", 2400))) / 1000)
         iterateur = iter(morceaux)
         tampon, taille = [], 0
         while taille < cible and not _INTERRUPTION.is_set():
@@ -794,9 +815,10 @@ def charger_whisper():
     _ajouter_dll_nvidia()
 
     try:
-        modele = WhisperModel(MODELE_WHISPER, device="cuda", compute_type="float16")
+        modele = WhisperModel(
+            MODELE_WHISPER, device="cuda", compute_type=WHISPER_COMPUTE)
         modele.transcribe(np.zeros(TAUX, dtype=np.float32), language=LANGUE_WHISPER)
-        print(f"Whisper {MODELE_WHISPER} sur GPU.")
+        print(f"Whisper {MODELE_WHISPER} sur GPU ({WHISPER_COMPUTE}).")
         return modele
     except Exception as e:
         print(f"GPU indisponible ({type(e).__name__}), bascule sur CPU.")

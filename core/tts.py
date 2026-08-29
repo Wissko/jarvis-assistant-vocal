@@ -114,8 +114,6 @@ class XTTSProvider(ProviderTTS):
             while time.monotonic() < limite:
                 if self._serveur_repond():
                     return True
-                if type(self)._processus.poll() is not None:
-                    break
                 time.sleep(1)
         except Exception as e:
             LOG.warning("demarrage XTTS impossible: %s", e)
