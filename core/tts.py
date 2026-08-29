@@ -156,33 +156,39 @@ class ChatterboxProvider(ProviderTTS):
 
 # --------------------------------------------------------------- ElevenLabs
 
-class ElevenLabsProvider(ProviderTTS):
-    nom = "ElevenLabs"
+class ChatterboxProvider(ProviderTTS):
+    """Voix locale naturelle fournie par Chatterbox-TTS-Server."""
+
+    nom = "Chatterbox"
+    _processus = None
 
     def __init__(self):
-        self.cle = reglage("elevenlabs.cle", "")
-        self.voix = reglage("elevenlabs.voix", "")
-        self.modele = reglage("elevenlabs.modele", "eleven_flash_v2_5")
-        self._voix_resolue = None
+        self.actif = bool(reglage("chatterbox.actif", False))
+        self.hote = str(reglage("chatterbox.hote", "http://127.0.0.1:8004")).rstrip("/")
+        self.voix_fr = str(reglage("chatterbox.voix_fr", "Lowkey-FR-Valet.wav"))
+        self.voix_en = str(reglage("chatterbox.voix_en", "Henry.wav"))
+        self.vitesse = float(reglage("chatterbox.vitesse", 1.08))
+        self.seed = int(reglage("chatterbox.seed", 108))
+        self.timeout = float(reglage("chatterbox.timeout", 120))
+        self.demarrage_auto = bool(reglage("chatterbox.demarrage_auto", True))
+        dossier = reglage("chatterbox.dossier", "../chatterbox-lowkey")
+        p = Path(str(dossier))
+        self.dossier = p if p.is_absolute() else (_RACINE / p).resolve()
 
     def disponible(self):
-        return bool(self.cle)
+        return self.actif
 
-    def _resoudre_voix(self):
-        if self.voix:
-            return self.voix
-        if self._voix_resolue:
-            return self._voix_resolue
+    def _parametres(self, langue=None):
+        anglais = str(langue or "").lower().startswith("en")
+        return (self.voix_en if anglais else self.voix_fr,
+                "en" if anglais else "fr")
+
+    def _serveur_repond(self):
         try:
-            requete = urllib.request.Request(
-                "https://api.elevenlabs.io/v1/voices",
-                headers={"xi-api-key": self.cle})
-            with urllib.request.urlopen(requete, timeout=6) as reponse:
-                d = json.loads(reponse.read().decode("utf-8"))
-            self._voix_resolue = d["voices"][0]["voice_id"]
+            with urllib.request.urlopen(f"{self.hote}/v1/audio/voices", timeout=1.5):
+                return True
         except Exception:
-            self._voix_resolue = "21m00Tcm4TlvDq8ikWAM"   # Rachel, par defaut
-        return self._voix_resolue
+            return False
 
     def synthetiser(self, texte, langue=None):
         if not self.disponible():
@@ -209,16 +215,11 @@ class ElevenLabsProvider(ProviderTTS):
             with urllib.request.urlopen(requete, timeout=15) as reponse:
                 mp3 = reponse.read()
             decode = miniaudio.decode(
-                mp3, nchannels=1, sample_rate=24000,
+                wav, nchannels=1, sample_rate=24000,
                 output_format=miniaudio.SampleFormat.SIGNED16)
-            try:                                  # N12 : comptabilite voix (au caractere)
-                from core import budget
-                budget.enregistrer_tts(len(texte or ""))
-            except Exception:
-                pass
             return np.frombuffer(decode.samples, dtype=np.int16), 24000
         except Exception as e:
-            print(f"  [ElevenLabs] indisponible ({e}), repli voix Windows.")
+            print(f"  [Chatterbox] indisponible ({e}), repli voix Windows.")
             return None
 
 

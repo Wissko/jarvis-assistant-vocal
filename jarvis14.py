@@ -1017,9 +1017,14 @@ def traiter(audio, whisper, historique, flux, reveil):
     if detectee:
         _LANGUE_COURANTE = "en" if str(detectee).lower().startswith("en") else "fr"
 
-    if not question or len(question) < 3:
-        print("  (rien compris)\n")
-        return False
+    detecteur_activation = DetecteurActivationWhisper(
+        _transcrire_activation, PHRASE_ACTIVATION,
+        config.reglage("assistant.activation_seuil_parole", 0.003),
+        config.reglage("assistant.activation_seuil_silence", 0.0025),
+        config.reglage("assistant.activation_silence_fin", 0.55),
+        config.reglage("assistant.activation_duree_max", 4.5), TAUX,
+        config.reglage("assistant.activation_duree_parole_min", 0.2),
+    ) if ACTIVATION_WHISPER else None
 
     print(f"  Vous [{_LANGUE_COURANTE.upper()}] : {question}")
     _hud("dire_vous", question)
