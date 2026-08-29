@@ -19,6 +19,7 @@ google_credentials.json
 google_token.json
 notes/
 reminders.json
+businesses.yaml
 
 # Journaux
 logs/
