@@ -11,6 +11,7 @@ Usage : uv run python jarvis14.py
 """
 
 import os
+import itertools
 import queue
 import re
 import subprocess
@@ -57,6 +58,9 @@ def _haut_parleur():
 MODELE_WHISPER = config.reglage("whisper.modele", "medium")
 LANGUE_WHISPER = config.reglage("whisper.langue", None)
 NOM_ASSISTANT = config.reglage("assistant.nom", "Lowkey")
+NOM_UTILISATEUR = config.reglage("utilisateur.appel", "Yose")
+PRONONCIATION_UTILISATEUR = config.reglage(
+    "utilisateur.prononciation", "Yosser")
 PHRASE_ACTIVATION = config.reglage(
     "assistant.phrase_activation", "Lowkey")
 ACTIVATION_WHISPER = config.reglage("assistant.activation_whisper", True)
@@ -97,10 +101,26 @@ LOG = journal.obtenir()
 # Sentinel renvoye par repondre() quand une action attend une confirmation vocale.
 SENTINEL_CONFIRM = "\x00confirmation\x00"
 
+
+def _adresser_action(phrase):
+    """Transforme « Je cherche... » en « Yose, je cherche... » sans doublon."""
+    texte = str(phrase or "").strip()
+    if not texte or not NOM_UTILISATEUR:
+        return texte
+    if texte.lower().startswith(str(NOM_UTILISATEUR).lower()):
+        return texte
+    suite = texte[:1].lower() + texte[1:]
+    return f"{NOM_UTILISATEUR}, {suite}"
+
 # Regles de base (format vocal, outils). La personnalite (persona) est ajoutee
 # devant, et la memoire derriere, par _refaire_systeme.
 SYSTEME_BASE = (
     f"Tu es {NOM_ASSISTANT}, l'assistant personnel prive de l'utilisateur. "
+    f"L'utilisateur s'appelle {NOM_UTILISATEUR}. Adresse-toi a lui par ce nom. "
+    f"Quand tu appelles un outil, ajoute juste avant un tres court texte naturel du type "
+    f"« {NOM_UTILISATEUR}, je vais... » en precisant l'action. Apres le resultat de "
+    f"l'outil, ne repete pas ton intention : termine par une courte "
+    f"formule comme « C'est fait, {NOM_UTILISATEUR}. » adaptee au resultat. "
     "Tes reponses sont lues a voix haute : reponds en une a deux phrases maximum "
     "(une seule si possible), sans listes, sans titres, sans asterisques ni emoji. "
     "Reponds toujours dans la langue de la derniere demande : francais si elle est "
@@ -310,10 +330,25 @@ def _jouer_audio_en_flux(morceaux, frequence, interruptible=True):
     commence = False
     flux = None
     try:
+        # XTTS genere a peu pres en temps reel : ce petit reservoir absorbe les
+        # variations GPU qui provoqueraient sinon des micro-coupures audibles.
+        cible = int(frequence * max(0.0, float(
+            config.reglage("audio.tts_tampon_ms", 800))) / 1000)
+        iterateur = iter(morceaux)
+        tampon, taille = [], 0
+        while taille < cible and not _INTERRUPTION.is_set():
+            try:
+                bloc = next(iterateur)
+            except StopIteration:
+                break
+            if bloc is not None and len(bloc):
+                tampon.append(bloc)
+                taille += len(bloc)
+
         flux = sd.OutputStream(
             samplerate=frequence, channels=1, dtype="int16",
-            device=_haut_parleur())
-        for audio in morceaux:
+            latency="high", device=_haut_parleur())
+        for audio in itertools.chain(tampon, iterateur):
             if _INTERRUPTION.is_set():
                 break
             if audio is None or not len(audio):
@@ -346,17 +381,19 @@ def dire(texte, interruptible=True):
         return
     from core.tts import tts
     fournisseur = tts()
+    texte_voix = voix.texte_a_prononcer(
+        texte, NOM_UTILISATEUR, PRONONCIATION_UTILISATEUR)
     _hud("etat", "synthese")
     debut = time.monotonic()
     try:
-        flux = fournisseur.synthetiser_en_flux(texte, langue=_LANGUE_COURANTE)
+        flux = fournisseur.synthetiser_en_flux(texte_voix, langue=_LANGUE_COURANTE)
         if flux is not None:
             morceaux, frequence = flux
             if _jouer_audio_en_flux(morceaux, frequence, interruptible):
                 LOG.info("TTS en flux termine en %.2fs", time.monotonic() - debut)
                 return
 
-        resultat = fournisseur.synthetiser(texte, langue=_LANGUE_COURANTE)
+        resultat = fournisseur.synthetiser(texte_voix, langue=_LANGUE_COURANTE)
         if resultat is not None:
             _hud("etat", "parole")
             if interruptible:
@@ -366,7 +403,7 @@ def dire(texte, interruptible=True):
             _hud("etat", "parole")
             if interruptible:
                 _PARLE.set()
-            _dire_sapi(texte, _LANGUE_COURANTE)
+            _dire_sapi(texte_voix, _LANGUE_COURANTE)
     finally:
         _PARLE.clear()    # fin de la parole : plus d'interruption possible
 
@@ -674,12 +711,18 @@ def repondre(historique):
             _hud("etat", "reflexion")
             noms = [b.name for b in reponse.content
                     if getattr(b, "type", None) == "tool_use"]
-            if (not accuse_donne and not _INTERRUPTION.is_set()
-                    and any(n in registre.noms_lents() for n in noms)):
+            if not accuse_donne and not _INTERRUPTION.is_set() and noms:
                 accuse_donne = True
                 _hud("etat", "parole")
+                preambule = " ".join(
+                    b.text for b in reponse.content
+                    if getattr(b, "type", None) == "text" and b.text.strip()
+                ).strip()
+                phrase_action = _adresser_action(
+                    preambule or registre.phrase_attente(noms))
                 fil_accuse = threading.Thread(
-                    target=dire, args=(registre.phrase_attente(noms),), daemon=True)
+                    target=dire, args=(phrase_action,),
+                    daemon=True)
                 fil_accuse.start()
 
             historique.append({"role": "assistant", "content": reponse.content})
@@ -691,7 +734,7 @@ def repondre(historique):
                 if fil_accuse:
                     fil_accuse.join()
                 _hud("etat", "parole")
-                phrase = annonce + " Tu confirmes ?"
+                phrase = _adresser_action(annonce) + " Tu confirmes ?"
                 # Pour un outil N2, rappeler qu'on peut memoriser l'autorisation.
                 if registre.niveau(registre.nom_en_attente() or "") == "N2":
                     phrase += " Tu peux dire oui, toujours."
@@ -1083,7 +1126,7 @@ def traiter(audio, whisper, historique, flux, reveil):
         texte, relancer = _confirmer(interrompu, relancer, whisper, historique, flux)
         _hud("confirmation", False)
     elif not texte:
-        texte = "C'est fait."
+        texte = f"C'est fait, {NOM_UTILISATEUR}."
         if not interrompu:
             _hud("etat", "parole")
             dire(texte)

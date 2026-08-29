@@ -85,6 +85,7 @@ audio:
   taux: null                   # taux de capture Hz ; null = auto (16 kHz si le micro le supporte, sinon son
                                #   taux natif ex. 48000, rééchantillonné en 16 kHz). Force-le si la capture échoue.
   haut_parleur: null           # null = sortie par defaut de Windows (changeable a la voix)
+  tts_tampon_ms: 800           # reserve audio XTTS pour eviter les micro-coupures
   sorties:                     # alias pour "passe sur le casque / les enceintes" (nom ou index)
     casque: "Casque"           # sous-chaine du nom de l'appareil de sortie (ou un index)
     enceintes: "Haut-parleurs"
@@ -142,6 +143,8 @@ apps:                          # applications/jeux lancables par la voix ("lance
   # obs: "C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe"
 
 utilisateur:                   # tes infos pour les reservations (JAMAIS de mot de passe ici)
+  appel: "Yose"                # nom employe par Lowkey dans ses reponses
+  prononciation: "Yosser"      # forme envoyee uniquement au moteur vocal
   nom: ""                      # ton nom complet
   telephone: ""                # ton numero de rappel
   email: ""                    # ton email

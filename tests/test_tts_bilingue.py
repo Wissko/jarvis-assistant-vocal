@@ -6,9 +6,18 @@ from unittest.mock import patch
 
 from core.tts import (ChatterboxProvider, ElevenLabsProvider, XTTSProvider,
                       parametres_voix_windows, reinitialiser, tts)
+from core.voix import texte_a_prononcer
 
 
 class VoixBilingueTests(unittest.TestCase):
+    def test_yose_est_ecrit_yose_et_prononce_yosser(self):
+        self.assertEqual(
+            texte_a_prononcer("Yose, c'est fait.", "Yose", "Yosser"),
+            "Yosser, c'est fait.")
+        self.assertEqual(
+            texte_a_prononcer("Bonjour YOSE.", "Yose", "Yosser"),
+            "Bonjour Yosser.")
+
     def test_voix_masculines_par_defaut(self):
         with patch("core.tts.reglage", side_effect=lambda chemin, defaut=None: defaut):
             self.assertEqual(parametres_voix_windows("fr-FR")[:2],

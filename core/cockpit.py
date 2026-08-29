@@ -95,9 +95,11 @@ def _arreter_lowkey():
             int(str(reglage("chatterbox.hote", "http://127.0.0.1:8004")).rsplit(":", 1)[-1]),
         }
         liste = ",".join(str(p) for p in sorted(ports))
-        script = (f"Get-NetTCPConnection -LocalPort {liste} -State Listen "
+        script = (f"foreach($port in @({liste})){{"
+                  "$ids=Get-NetTCPConnection -LocalPort $port -State Listen "
                   "-ErrorAction SilentlyContinue | Select-Object -ExpandProperty "
-                  "OwningProcess -Unique | Stop-Process -Force")
+                  "OwningProcess -Unique; foreach($idProcessus in $ids){"
+                  "Stop-Process -Id $idProcessus -Force -ErrorAction SilentlyContinue}}}")
         try:
             subprocess.run(["powershell", "-NoProfile", "-WindowStyle", "Hidden",
                             "-Command", script], timeout=8, check=False,

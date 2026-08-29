@@ -82,9 +82,23 @@ def stream():
                 texte, langue, latent, speaker,
                 stream_chunk_size=20, overlap_wav_len=1024,
                 speed=vitesse, enable_text_splitting=True)
+            dernier = None
             for morceau in morceaux:
                 audio = morceau.detach().float().cpu().numpy().reshape(-1)
-                yield (np.clip(audio, -1.0, 1.0) * 32767).astype("<i2").tobytes()
+                audio = (np.clip(audio, -1.0, 1.0) * 32767).astype("<i2")
+                if dernier is not None:
+                    yield dernier.tobytes()
+                dernier = audio
+
+            # Retient le dernier bloc pour terminer sur un fondu de 180 ms,
+            # suivi d'un souffle nul tres court plutot que d'une coupure seche.
+            if dernier is not None:
+                fondu = min(len(dernier), int(FREQUENCE * 0.18))
+                if fondu:
+                    rampe = np.linspace(1.0, 0.0, fondu, dtype=np.float32)
+                    dernier[-fondu:] = (dernier[-fondu:].astype(np.float32) * rampe).astype("<i2")
+                yield dernier.tobytes()
+                yield np.zeros(int(FREQUENCE * 0.12), dtype="<i2").tobytes()
 
     return Response(produire(), mimetype="audio/wav",
                     headers={"Cache-Control": "no-store"})
