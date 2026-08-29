@@ -77,6 +77,7 @@ def _haut_parleur():
 MODELE_WHISPER = config.reglage("whisper.modele", "medium")
 LANGUE_WHISPER = config.reglage("whisper.langue", None)
 WHISPER_COMPUTE = config.reglage("whisper.compute_type", "int8_float16")
+MODELE_WHISPER_ACTIVATION = config.reglage("assistant.activation_modele", "tiny")
 NOM_ASSISTANT = config.reglage("assistant.nom", "Lowkey")
 NOM_UTILISATEUR = config.reglage("utilisateur.appel", "Yose")
 PRONONCIATION_UTILISATEUR = config.reglage(
@@ -834,6 +835,26 @@ def charger_whisper():
     raise RuntimeError("Impossible de charger Whisper.")
 
 
+def charger_whisper_activation():
+    """Petit Whisper CPU reserve au mot d'activation.
+
+    Le modele principal reste sur le GPU pour transcrire les vraies commandes,
+    mais la television et le bruit ambiant ne le sollicitent plus en veille.
+    """
+    if not ACTIVATION_WHISPER:
+        return None
+    try:
+        modele = WhisperModel(
+            MODELE_WHISPER_ACTIVATION, device="cpu", compute_type="int8",
+            cpu_threads=max(1, min(4, os.cpu_count() or 2)), num_workers=1)
+        modele.transcribe(np.zeros(TAUX, dtype=np.float32), language=None, beam_size=1)
+        print(f"Wake word Whisper {MODELE_WHISPER_ACTIVATION} sur CPU (int8).")
+        return modele
+    except Exception as e:
+        LOG.warning("wake word CPU indisponible, repli sur Whisper principal: %s", e)
+        return None
+
+
 # ---------------------------------------------------------------- principal
 
 
@@ -1220,6 +1241,7 @@ def main():
     )])
 
     whisper = charger_whisper()
+    whisper_activation = charger_whisper_activation()
 
     # Les appels telephoniques reutilisent ce Whisper pour transcrire les reponses.
     from tools.appels import definir_transcripteur
@@ -1392,7 +1414,8 @@ def main():
             LOG.exception("overlay: demarrage")
 
     def _transcrire_activation(audio):
-        segments, _ = whisper.transcribe(
+        modele_activation = whisper_activation or whisper
+        segments, _ = modele_activation.transcribe(
             audio, language=None, beam_size=1, condition_on_previous_text=False)
         return " ".join(s.text for s in segments).strip()
 
@@ -1401,7 +1424,7 @@ def main():
         config.reglage("assistant.activation_seuil_parole", 0.003),
         config.reglage("assistant.activation_seuil_silence", 0.0025),
         config.reglage("assistant.activation_silence_fin", 0.55),
-        config.reglage("assistant.activation_duree_max", 4.5), TAUX,
+        config.reglage("assistant.activation_duree_max", 2.5), TAUX,
         config.reglage("assistant.activation_duree_parole_min", 0.2),
     ) if ACTIVATION_WHISPER else None
 

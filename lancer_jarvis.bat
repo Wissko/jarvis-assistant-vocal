@@ -14,10 +14,8 @@ if exist "..\xtts-lowkey\.venv\Scripts\python.exe" (
 )
 if exist ".venv\Scripts\python.exe" (
   start "" /b ".venv\Scripts\python.exe" -m core.prechauffer_tts >nul 2>&1
-  ".venv\Scripts\python.exe" jarvis14.py
+  powershell -NoProfile -WindowStyle Hidden -Command "$py=(Resolve-Path '.venv\Scripts\python.exe').Path; $script=(Resolve-Path 'jarvis14.py').Path; Start-Process -WindowStyle Hidden -FilePath $py -ArgumentList $script -WorkingDirectory (Get-Location).Path"
 ) else (
-  "%USERPROFILE%\.local\bin\uv.exe" run python jarvis14.py
+  powershell -NoProfile -WindowStyle Hidden -Command "Start-Process -WindowStyle Hidden -FilePath '%USERPROFILE%\.local\bin\uv.exe' -ArgumentList 'run','python','jarvis14.py' -WorkingDirectory (Get-Location).Path"
 )
-echo.
-echo Lowkey s'est arrete. Vous pouvez fermer cette fenetre.
-pause
+exit /b 0

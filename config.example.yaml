@@ -109,10 +109,11 @@ assistant:
   outils_dynamiques: true      # limite les outils envoyes au LLM selon la demande
   activation_whisper: true    # phrase personnalisee, 100 % locale
   activation_openwakeword: false # ancien « Hey Jarvis » desactive
+  activation_modele: "tiny"   # petit Whisper CPU en veille ; le medium GPU reste reserve aux commandes
   activation_seuil_parole: 0.003  # adapte aux micros Windows a faible gain
   activation_seuil_silence: 0.0025
   activation_silence_fin: 0.55
-  activation_duree_max: 4.5
+  activation_duree_max: 2.5   # evite de transcrire de longues conversations ambiantes
   activation_duree_parole_min: 0.2 # filtre les clics et bruits tres courts
   duree_suite: 10              # secondes d'ecoute apres une reponse
   piece_nuit: "chambre"        # piece allumee au demarrage s'il fait nuit ("" pour desactiver)
