@@ -19,6 +19,7 @@ google_credentials.json
 google_token.json
 notes/
 reminders.json
+businesses.yaml
 
 # Journaux
 logs/
@@ -45,3 +46,4 @@ musique/captures/
 # Cockpit : donnees financieres PERSO (tout le dossier sauf l'exemple versionne).
 finances/*
 !finances/abonnements.example.yaml
+
