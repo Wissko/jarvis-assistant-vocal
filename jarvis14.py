@@ -1168,7 +1168,9 @@ def main():
             print(f"ATTENTION : le fournisseur {_fournisseur.nom} n'est pas disponible. "
                   "Verifie sa configuration puis redemarre Jarvis.")
 
-    _hud("demarrer")
+    # Le HUD historique reste disponible pour les evenements internes, mais son
+    # ancien onglet 127.0.0.1:8770 ne s'ouvre plus : Private OS est l'interface.
+    _hud("demarrer", config.reglage("hud.ouvrir", False))
     _modele_hud = getattr(_fournisseur, "modele", "")
     _hud("config", f"{_fournisseur.nom} · {_modele_hud}" if _modele_hud
          else _fournisseur.nom, f"whisper {MODELE_WHISPER}")
