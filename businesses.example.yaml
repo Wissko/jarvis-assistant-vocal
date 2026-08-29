@@ -1,0 +1,32 @@
+profil:
+  nom: "Operator"
+  signature: "Private operating system"
+
+domaines:
+  - id: operations
+    nom: "Operations"
+    description: "Pilotage des clients, projets, taches et revenus."
+    projets:
+      - nom: "Workspace"
+        type: "Command center"
+        repo: ""
+  - id: products
+    nom: "Products"
+    description: "Produits et SaaS en construction."
+    projets:
+      - nom: "Product One"
+        type: "SaaS"
+        repo: ""
+  - id: clients
+    nom: "Client Studio"
+    description: "Sites, identites et livrables clients."
+    projets: []
+  - id: intelligence
+    nom: "Intelligence"
+    description: "Agents, automatisations et outils de decision."
+    projets:
+      - nom: "Lowkey"
+        type: "Executive assistant"
+        repo: ""
+
+
