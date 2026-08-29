@@ -1,0 +1,5 @@
+# Installer PyTorch CUDA d'abord avec :
+# uv pip install torch torchaudio --torch-backend=auto
+coqui-tts[server]==0.27.5
+transformers==4.57.6
+truststore==0.10.4

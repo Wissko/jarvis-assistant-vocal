@@ -4,7 +4,8 @@ import struct
 import unittest
 from unittest.mock import patch
 
-from core.tts import ChatterboxProvider, ElevenLabsProvider, parametres_voix_windows
+from core.tts import (ChatterboxProvider, ElevenLabsProvider, XTTSProvider,
+                      parametres_voix_windows, reinitialiser, tts)
 
 
 class VoixBilingueTests(unittest.TestCase):
@@ -69,6 +70,17 @@ class VoixBilingueTests(unittest.TestCase):
         self.assertTrue(appels[0]["stream"])
         self.assertEqual(appels[0]["chunk_size"], 50)
         self.assertEqual(appels[0]["predefined_voice_id"], "Lowkey-FR.wav")
+
+    def test_xtts_est_prioritaire_sur_chatterbox(self):
+        valeurs = {"xtts.actif": True, "chatterbox.actif": True}
+        reinitialiser()
+        try:
+            with patch("core.tts.reglage",
+                       side_effect=lambda chemin, defaut=None: valeurs.get(chemin, defaut)), \
+                 patch("core.routage.mode_actuel", return_value="hybride"):
+                self.assertIsInstance(tts(), XTTSProvider)
+        finally:
+            reinitialiser()
 
 
 if __name__ == "__main__":

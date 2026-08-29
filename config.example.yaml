@@ -58,6 +58,14 @@ chatterbox:                    # voix neuronale locale naturelle (serveur separe
   timeout: 120                 # premier chargement du modele plus long
   demarrage_auto: true
 
+xtts:                          # voix clonee locale, usage personnel/non commercial
+  actif: false
+  hote: "http://127.0.0.1:8020"
+  dossier: "../xtts-lowkey"
+  vitesse: 1.0
+  timeout: 180
+  demarrage_auto: true
+
 voix_windows:                  # repli local immediat, sans cle API
   fr: "Microsoft Paul"         # voix masculine francaise
   en: "Microsoft Mark"         # voix masculine anglaise

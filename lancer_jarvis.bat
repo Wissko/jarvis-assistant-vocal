@@ -8,10 +8,9 @@ rem Si Lowkey tourne deja, ne lance pas une seconde instance : ouvre son interfa
 powershell -NoProfile -Command "if (Get-NetTCPConnection -LocalPort 8790 -State Listen -ErrorAction SilentlyContinue) { Start-Process 'http://localhost:8790/cockpit'; exit 42 }"
 if %errorlevel% equ 42 exit /b 0
 git pull --ff-only 2>nul
-rem Prechauffe Chatterbox en arriere-plan. Le provider attendra sa disponibilite
-rem si une reponse vocale arrive avant la fin du chargement du modele.
-if exist "..\chatterbox-lowkey\python_embedded\python.exe" (
-  powershell -NoProfile -WindowStyle Hidden -Command "if (-not (Get-NetTCPConnection -LocalPort 8004 -State Listen -ErrorAction SilentlyContinue)) { $env:TTS_BF16='auto'; Start-Process -WindowStyle Hidden -FilePath '..\chatterbox-lowkey\python_embedded\python.exe' -ArgumentList 'server.py' -WorkingDirectory '..\chatterbox-lowkey' }"
+rem Precharge XTTS v2 en arriere-plan. Chatterbox reste le repli automatique.
+if exist "..\xtts-lowkey\.venv\Scripts\python.exe" (
+  powershell -NoProfile -WindowStyle Hidden -Command "if (-not (Get-NetTCPConnection -LocalPort 8020 -State Listen -ErrorAction SilentlyContinue)) { $env:COQUI_TOS_AGREED='1'; Start-Process -WindowStyle Hidden -FilePath '..\xtts-lowkey\.venv\Scripts\python.exe' -ArgumentList 'services\xtts_server.py' -WorkingDirectory '.' }"
 )
 if exist ".venv\Scripts\python.exe" (
   start "" /b ".venv\Scripts\python.exe" -m core.prechauffer_tts >nul 2>&1

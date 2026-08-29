@@ -64,6 +64,114 @@ class ProviderTTS:
         return None
 
 
+# --------------------------------------------------------------- XTTS v2
+
+class XTTSProvider(ProviderTTS):
+    """Voix bilingue clonee, locale et diffusee par XTTS v2."""
+
+    nom = "XTTS v2"
+    _processus = None
+
+    def __init__(self):
+        self.actif = bool(reglage("xtts.actif", False))
+        self.hote = str(reglage("xtts.hote", "http://127.0.0.1:8020")).rstrip("/")
+        self.vitesse = float(reglage("xtts.vitesse", 1.0))
+        self.timeout = float(reglage("xtts.timeout", 180))
+        self.demarrage_auto = bool(reglage("xtts.demarrage_auto", True))
+        dossier = Path(str(reglage("xtts.dossier", "../xtts-lowkey")))
+        self.dossier = dossier if dossier.is_absolute() else (_RACINE / dossier).resolve()
+        self.repli = ChatterboxProvider()
+
+    def disponible(self):
+        return self.actif
+
+    def _serveur_repond(self):
+        try:
+            with urllib.request.urlopen(f"{self.hote}/health", timeout=1.5) as reponse:
+                return bool(json.loads(reponse.read()).get("loaded"))
+        except Exception:
+            return False
+
+    def _demarrer_si_necessaire(self):
+        if self._serveur_repond():
+            return True
+        if not self.demarrage_auto:
+            return False
+        python = self.dossier / ".venv" / "Scripts" / "python.exe"
+        serveur = _RACINE / "services" / "xtts_server.py"
+        if not python.exists() or not serveur.exists():
+            LOG.warning("XTTS v2 non installe dans %s", self.dossier)
+            return False
+        try:
+            options = {"cwd": str(_RACINE), "stdout": subprocess.DEVNULL,
+                       "stderr": subprocess.DEVNULL,
+                       "env": {**os.environ, "COQUI_TOS_AGREED": "1"}}
+            if os.name == "nt":
+                options["creationflags"] = subprocess.CREATE_NO_WINDOW
+            type(self)._processus = subprocess.Popen(
+                [str(python), str(serveur)], **options)
+            limite = time.monotonic() + self.timeout
+            while time.monotonic() < limite:
+                if self._serveur_repond():
+                    return True
+                if type(self)._processus.poll() is not None:
+                    break
+                time.sleep(1)
+        except Exception as e:
+            LOG.warning("demarrage XTTS impossible: %s", e)
+        return False
+
+    def synthetiser_en_flux(self, texte, langue=None):
+        if not self.disponible() or not self._demarrer_si_necessaire():
+            return self.repli.synthetiser_en_flux(texte, langue)
+        try:
+            import numpy as np
+            code = "en" if str(langue or "").lower().startswith("en") else "fr"
+            charge = {"input": texte, "language": code, "speed": self.vitesse}
+            requete = urllib.request.Request(
+                f"{self.hote}/stream", data=json.dumps(charge).encode("utf-8"),
+                method="POST", headers={"Content-Type": "application/json",
+                                        "Accept": "audio/wav"})
+            reponse = urllib.request.urlopen(requete, timeout=self.timeout)
+            entete = reponse.read(44)
+            if len(entete) != 44 or entete[:4] != b"RIFF" or entete[8:12] != b"WAVE":
+                reponse.close()
+                raise ValueError("flux WAV XTTS invalide")
+            frequence = struct.unpack("<I", entete[24:28])[0]
+
+            def morceaux():
+                reste = b""
+                try:
+                    while True:
+                        lire = getattr(reponse, "read1", reponse.read)
+                        bloc = lire(8192)
+                        if not bloc:
+                            break
+                        bloc = reste + bloc
+                        limite = len(bloc) - len(bloc) % 2
+                        if limite:
+                            yield np.frombuffer(bloc[:limite], dtype="<i2").copy()
+                        reste = bloc[limite:]
+                finally:
+                    reponse.close()
+
+            return morceaux(), frequence
+        except Exception as e:
+            LOG.warning("flux XTTS indisponible, repli Chatterbox: %s", e)
+            return self.repli.synthetiser_en_flux(texte, langue)
+
+    def synthetiser(self, texte, langue=None):
+        flux = self.synthetiser_en_flux(texte, langue)
+        if flux is None:
+            return None
+        morceaux, frequence = flux
+        try:
+            import numpy as np
+            return np.concatenate(list(morceaux)), frequence
+        except Exception:
+            return None
+
+
 # --------------------------------------------------------------- Chatterbox
 
 class ChatterboxProvider(ProviderTTS):
@@ -396,12 +504,14 @@ _TTS = None
 
 
 def tts():
-    """Provider TTS courant, avec priorite a Chatterbox quand il est active."""
+    """Provider TTS courant, XTTS puis Chatterbox quand ils sont actifs."""
     global _TTS
     if _TTS is None:
         from core.routage import mode_actuel
         m = mode_actuel()
-        if reglage("chatterbox.actif", False):
+        if reglage("xtts.actif", False):
+            _TTS = XTTSProvider()
+        elif reglage("chatterbox.actif", False):
             _TTS = ChatterboxProvider()
         elif m == "local":
             moteur = (reglage("voix_locale", "piper") or "piper").lower()

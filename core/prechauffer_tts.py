@@ -37,6 +37,17 @@ def _charger(hote, voix, langue, texte, vitesse, seed):
 
 
 def main():
+    # XTTS charge deja le modele et les deux empreintes avant d'ouvrir son port.
+    if reglage("xtts.actif", False):
+        hote = str(reglage("xtts.hote", "http://127.0.0.1:8020")).rstrip("/")
+        limite = time.monotonic() + float(reglage("xtts.timeout", 180))
+        while time.monotonic() < limite:
+            try:
+                with urllib.request.urlopen(f"{hote}/health", timeout=2):
+                    return
+            except Exception:
+                time.sleep(2)
+        return
     if not reglage("chatterbox.actif", False):
         return
     hote = str(reglage("chatterbox.hote", "http://127.0.0.1:8004")).rstrip("/")

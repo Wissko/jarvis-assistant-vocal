@@ -64,12 +64,16 @@ def _charger_activites():
 def _etat_lowkey():
     activites = _charger_activites()
     chatterbox = {"ok": False, "modele": "hors ligne", "device": "—"}
-    hote = str(reglage("chatterbox.hote", "http://127.0.0.1:8004")).rstrip("/")
+    xtts = bool(reglage("xtts.actif", False))
+    hote = str(reglage(
+        "xtts.hote" if xtts else "chatterbox.hote",
+        "http://127.0.0.1:8020" if xtts else "http://127.0.0.1:8004")).rstrip("/")
     try:
-        with urllib.request.urlopen(f"{hote}/api/model-info", timeout=1.2) as reponse:
+        route = "/health" if xtts else "/api/model-info"
+        with urllib.request.urlopen(f"{hote}{route}", timeout=1.2) as reponse:
             info = json.loads(reponse.read().decode("utf-8"))
         chatterbox = {"ok": bool(info.get("loaded")),
-                      "modele": info.get("type") or "Chatterbox",
+                      "modele": info.get("model") or info.get("type") or "Chatterbox",
                       "device": info.get("device") or "—"}
     except Exception:
         pass
@@ -86,10 +90,14 @@ def _etat_lowkey():
 def _arreter_lowkey():
     """Coupe le moteur vocal puis demande l'arret propre de Lowkey."""
     if os.name == "nt":
-        port = str(reglage("chatterbox.hote", "http://127.0.0.1:8004")).rsplit(":", 1)[-1]
-        script = (f"$p=(Get-NetTCPConnection -LocalPort {int(port)} -State Listen "
-                  "-ErrorAction SilentlyContinue | Select-Object -First 1 "
-                  "-ExpandProperty OwningProcess); if($p){Stop-Process -Id $p -Force}")
+        ports = {
+            int(str(reglage("xtts.hote", "http://127.0.0.1:8020")).rsplit(":", 1)[-1]),
+            int(str(reglage("chatterbox.hote", "http://127.0.0.1:8004")).rsplit(":", 1)[-1]),
+        }
+        liste = ",".join(str(p) for p in sorted(ports))
+        script = (f"Get-NetTCPConnection -LocalPort {liste} -State Listen "
+                  "-ErrorAction SilentlyContinue | Select-Object -ExpandProperty "
+                  "OwningProcess -Unique | Stop-Process -Force")
         try:
             subprocess.run(["powershell", "-NoProfile", "-WindowStyle", "Hidden",
                             "-Command", script], timeout=8, check=False,
