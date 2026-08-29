@@ -46,4 +46,3 @@ musique/captures/
 # Cockpit : donnees financieres PERSO (tout le dossier sauf l'exemple versionne).
 finances/*
 !finances/abonnements.example.yaml
-

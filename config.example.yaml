@@ -63,23 +63,6 @@ voix_windows:                  # repli local immediat, sans cle API
   debit: -1                    # pose, style assistant technologique (-10 a 10)
   volume: 100
 
-chatterbox:                    # voix neuronale locale naturelle (serveur separe)
-  actif: false                 # true = prioritaire sur ElevenLabs/Piper
-  hote: "http://127.0.0.1:8004"
-  dossier: "../chatterbox-lowkey"
-  voix_fr: "Lowkey-FR-Valet.wav" # voix francaise native, masculine et posee
-  voix_en: "Henry.wav"         # voix britannique conservee pour l'anglais
-  vitesse: 1.08                # plus reactive sans effet de voix acceleree
-  seed: 108                    # stabilise le timbre entre les reponses
-  timeout: 120                 # premier chargement du modele plus long
-  demarrage_auto: true
-
-voix_windows:                  # repli local immediat, sans cle API
-  fr: "Microsoft Paul"         # voix masculine francaise
-  en: "Microsoft Mark"         # voix masculine anglaise
-  debit: -1                    # pose, style assistant technologique (-10 a 10)
-  volume: 100
-
 hue:                           # Philips Hue, API locale
   pont: "192.168.1.XXX"        # adresse du pont sur ton reseau
   cle: "ta-cle-hue"            # cle generee via le bouton du pont
