@@ -154,6 +154,21 @@ def micro(muet):
     _diffuser({"t": "micro", "v": bool(muet)})
 
 
+def instantane():
+    """Etat vocal courant pour Lowkey Private OS (copie sure et locale)."""
+    with _VERROU:
+        historique = list(_HISTORIQUE)[-8:]
+    return {
+        "etat": _ETAT.get("etat", VEILLE),
+        "niveau": float(_ETAT.get("niveau", 0.0) or 0.0),
+        "micro_muette": bool(_ETAT.get("micro", False)),
+        "modele": str(_ETAT.get("modele", "")),
+        "stt": str(_ETAT.get("stt", "")),
+        "routage": str(_ETAT.get("routage", "")),
+        "dernier": historique[-1] if historique else None,
+    }
+
+
 def demo(actif):
     """Affiche un badge DEMO (scenario de demonstration, rien de reel)."""
     _diffuser({"t": "demo", "v": bool(actif)})

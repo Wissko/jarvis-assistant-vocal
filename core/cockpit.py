@@ -309,6 +309,17 @@ def monter_routes(app):
         from core.interactions import lire
         return {"interactions": lire(limite)}
 
+    @app.get("/api/cockpit/voice-state")
+    def api_voice_state(request: Request):
+        if (r := garde(request)):
+            return r
+        try:
+            import hud
+            return hud.instantane()
+        except Exception:
+            return {"etat": "veille", "niveau": 0.0, "micro_muette": False,
+                    "dernier": None}
+
     @app.post("/api/cockpit/stop")
     def api_stop(request: Request):
         if (r := garde(request)):
