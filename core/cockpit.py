@@ -12,8 +12,11 @@ import calendar
 import datetime as dt
 import json
 import logging
+import os
 import shutil
 import subprocess
+import threading
+import time
 import urllib.request
 from pathlib import Path
 
@@ -78,6 +81,23 @@ def _etat_lowkey():
         "projets": activites["total_projets"],
         "local": True,
     }
+
+
+def _arreter_lowkey():
+    """Coupe le moteur vocal puis demande l'arret propre de Lowkey."""
+    if os.name == "nt":
+        port = str(reglage("chatterbox.hote", "http://127.0.0.1:8004")).rsplit(":", 1)[-1]
+        script = (f"$p=(Get-NetTCPConnection -LocalPort {int(port)} -State Listen "
+                  "-ErrorAction SilentlyContinue | Select-Object -First 1 "
+                  "-ExpandProperty OwningProcess); if($p){Stop-Process -Id $p -Force}")
+        try:
+            subprocess.run(["powershell", "-NoProfile", "-WindowStyle", "Hidden",
+                            "-Command", script], timeout=8, check=False,
+                           creationflags=subprocess.CREATE_NO_WINDOW)
+        except Exception:
+            LOG.exception("cockpit: arret du moteur vocal")
+    from core.serveur import demander_arret
+    demander_arret()
 
 
 # ============================================================ fenêtre app
@@ -281,6 +301,24 @@ def monter_routes(app):
     @app.get("/api/cockpit/status")
     def api_status(request: Request):
         return garde(request) or _etat_lowkey()
+
+    @app.get("/api/cockpit/interactions")
+    def api_interactions(request: Request, limite: int = 100):
+        if (r := garde(request)):
+            return r
+        from core.interactions import lire
+        return {"interactions": lire(limite)}
+
+    @app.post("/api/cockpit/stop")
+    def api_stop(request: Request):
+        if (r := garde(request)):
+            return r
+        if request.headers.get("x-lowkey-action") != "stop":
+            return JSONResponse({"ok": False, "message": "Confirmation requise."},
+                                status_code=400)
+        threading.Thread(target=lambda: (time.sleep(0.6), _arreter_lowkey()),
+                         daemon=True, name="arret-lowkey").start()
+        return {"ok": True, "message": "Arrêt de Lowkey en cours."}
 
     @app.get("/api/cockpit/finances")
     def api_finances(request: Request):

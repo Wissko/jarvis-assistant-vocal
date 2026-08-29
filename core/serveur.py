@@ -29,6 +29,16 @@ LOG = logging.getLogger("jarvis")
 _APP = None
 _SERVEUR = None
 _URL = None
+_ARRET_DEMANDE = threading.Event()
+
+
+def demander_arret():
+    """Demande a la boucle principale de terminer proprement."""
+    _ARRET_DEMANDE.set()
+
+
+def arret_demande():
+    return _ARRET_DEMANDE.is_set()
 
 
 def _port():

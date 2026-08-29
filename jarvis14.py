@@ -35,7 +35,7 @@ import sounddevice as sd
 from faster_whisper import WhisperModel
 from openwakeword.model import Model as WakeModel
 
-from core import config, journal, memoire, personnalite, registre, voix
+from core import config, interactions, journal, memoire, personnalite, registre, voix
 from core.activation import DetecteurActivationWhisper
 from core.util import sans_accents
 from tools.lumieres import allumer_si_nuit, charger_pieces_hue
@@ -1022,6 +1022,7 @@ def traiter(audio, whisper, historique, flux, reveil):
         return False
 
     print(f"  Vous [{_LANGUE_COURANTE.upper()}] : {question}")
+    interactions.ajouter("user", question, _LANGUE_COURANTE)
     _hud("dire_vous", question)
     _hud("etat", "reflexion")
     historique.append({"role": "user", "content": question})
@@ -1042,6 +1043,7 @@ def traiter(audio, whisper, historique, flux, reveil):
     _afficher_overlay(texte)
     _hud_status()
     print(f"  {NOM_ASSISTANT} : {texte}\n")
+    interactions.ajouter("assistant", texte, _LANGUE_COURANTE)
     _tronquer(historique)
     return relancer
 
@@ -1189,11 +1191,22 @@ def main():
     if CAPTURE_TAUX != TAUX:
         print(f"[audio] micro en {CAPTURE_TAUX} Hz -> reechantillonnage vers {TAUX} Hz "
               f"(bloc {BLOC_CAPTURE} -> {BLOC})")
-    flux = sd.InputStream(
-        samplerate=CAPTURE_TAUX, channels=1, dtype="float32",
-        device=MICRO, blocksize=BLOC_CAPTURE,
-    )
-    flux.start()
+    from core.serveur import arret_demande
+    flux = None
+    while not arret_demande():
+        try:
+            flux = sd.InputStream(
+                samplerate=CAPTURE_TAUX, channels=1, dtype="float32",
+                device=MICRO, blocksize=BLOC_CAPTURE,
+            )
+            flux.start()
+            break
+        except Exception as e:
+            LOG.warning("micro indisponible, nouvelle tentative dans 3 s : %s", e)
+            _hud("etat", "micro indisponible")
+            time.sleep(3)
+    if flux is None:
+        return
 
     # Auto-calibration des seuils de niveau selon le bruit ambiant (portabilité :
     # s'adapte au gain du micro et à la pièce). Ignorée si tu fixes toi-même
@@ -1291,7 +1304,7 @@ def main():
     enchainer = False
 
     try:
-        while True:
+        while not arret_demande():
             suite = enchainer
             if not enchainer:
                 bloc = lire_bloc(flux)
