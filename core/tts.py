@@ -70,7 +70,7 @@ class ChatterboxProvider(ProviderTTS):
     def __init__(self):
         self.actif = bool(reglage("chatterbox.actif", False))
         self.hote = str(reglage("chatterbox.hote", "http://127.0.0.1:8004")).rstrip("/")
-        self.voix_fr = str(reglage("chatterbox.voix_fr", "Henry.wav"))
+        self.voix_fr = str(reglage("chatterbox.voix_fr", "Lowkey-FR-Valet.wav"))
         self.voix_en = str(reglage("chatterbox.voix_en", "Henry.wav"))
         self.vitesse = float(reglage("chatterbox.vitesse", 0.95))
         self.seed = int(reglage("chatterbox.seed", 108))

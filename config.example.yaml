@@ -50,8 +50,8 @@ chatterbox:                    # voix neuronale locale naturelle (serveur separe
   actif: false                 # true = prioritaire sur ElevenLabs/Piper
   hote: "http://127.0.0.1:8004"
   dossier: "../chatterbox-lowkey"
-  voix_fr: "Henry.wav"         # meme timbre dans les deux langues
-  voix_en: "Henry.wav"
+  voix_fr: "Lowkey-FR-Valet.wav" # voix francaise native, masculine et posee
+  voix_en: "Henry.wav"         # voix britannique conservee pour l'anglais
   vitesse: 0.95                # diction posee, style assistant haut de gamme
   seed: 108                    # stabilise le timbre entre les reponses
   timeout: 120                 # premier chargement du modele plus long
