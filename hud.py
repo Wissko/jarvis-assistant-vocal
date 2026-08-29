@@ -39,6 +39,7 @@ _FICHIER_HTML = Path(__file__).parent / "hud.html"
 VEILLE = "veille"
 ECOUTE = "ecoute"
 REFLEXION = "reflexion"
+SYNTHESE = "synthese"
 PAROLE = "parole"
 
 # ---------------------------------------------------------------- etat partage
@@ -85,7 +86,7 @@ def _diffuser(evenement):
 
 
 def etat(nom):
-    """Change l'etat visuel : veille, ecoute, reflexion ou parole."""
+    """Change l'etat visuel : veille, ecoute, reflexion, synthese ou parole."""
     _ETAT["etat"] = nom
     _diffuser({"t": "etat", "v": nom})
 

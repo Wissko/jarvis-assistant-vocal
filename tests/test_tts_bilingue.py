@@ -1,3 +1,6 @@
+import io
+import json
+import struct
 import unittest
 from unittest.mock import patch
 
@@ -36,6 +39,36 @@ class VoixBilingueTests(unittest.TestCase):
             fournisseur = ChatterboxProvider()
         self.assertEqual(fournisseur._parametres("fr-FR"), ("Lowkey-FR.wav", "fr"))
         self.assertEqual(fournisseur._parametres("en-GB"), ("Lowkey-UK.wav", "en"))
+
+    def test_chatterbox_diffuse_le_pcm_par_petits_morceaux(self):
+        valeurs = {
+            "chatterbox.actif": True,
+            "chatterbox.voix_fr": "Lowkey-FR.wav",
+            "chatterbox.taille_flux": 50,
+        }
+        with patch("core.tts.reglage",
+                   side_effect=lambda chemin, defaut=None: valeurs.get(chemin, defaut)):
+            fournisseur = ChatterboxProvider()
+
+        entete = bytearray(44)
+        entete[:4], entete[8:12] = b"RIFF", b"WAVE"
+        entete[24:28] = struct.pack("<I", 24000)
+        reponse = io.BytesIO(bytes(entete) + struct.pack("<4h", 1, -2, 3, -4))
+        appels = []
+
+        def ouvrir(requete, timeout=None):
+            appels.append(json.loads(requete.data.decode("utf-8")))
+            return reponse
+
+        with patch.object(fournisseur, "_demarrer_si_necessaire", return_value=True), \
+             patch("core.tts.urllib.request.urlopen", side_effect=ouvrir):
+            morceaux, frequence = fournisseur.synthetiser_en_flux("Bonjour", "fr")
+            self.assertEqual(frequence, 24000)
+            self.assertEqual(next(morceaux).tolist(), [1, -2, 3, -4])
+
+        self.assertTrue(appels[0]["stream"])
+        self.assertEqual(appels[0]["chunk_size"], 50)
+        self.assertEqual(appels[0]["predefined_voice_id"], "Lowkey-FR.wav")
 
 
 if __name__ == "__main__":

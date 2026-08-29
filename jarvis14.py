@@ -305,6 +305,34 @@ def _jouer_audio(audio, frequence):
         sd.stop()
 
 
+def _jouer_audio_en_flux(morceaux, frequence, interruptible=True):
+    """Lit du PCM continu a mesure que Chatterbox le produit."""
+    commence = False
+    flux = None
+    try:
+        flux = sd.OutputStream(
+            samplerate=frequence, channels=1, dtype="int16",
+            device=_haut_parleur())
+        for audio in morceaux:
+            if _INTERRUPTION.is_set():
+                break
+            if audio is None or not len(audio):
+                continue
+            if not commence:
+                flux.start()
+                commence = True
+                _hud("etat", "parole")
+                if interruptible:
+                    _PARLE.set()
+            flux.write(audio.reshape(-1, 1))
+    finally:
+        if flux is not None:
+            flux.close()
+        if _INTERRUPTION.is_set():
+            sd.stop()
+    return commence
+
+
 def dire(texte, interruptible=True):
     """Prononce un texte via le provider TTS courant (ElevenLabs en cloud, Piper en
     local) ; repli sur la voix Windows (SAPI) si le provider est indisponible.
@@ -317,13 +345,27 @@ def dire(texte, interruptible=True):
     if _INTERRUPTION.is_set():
         return
     from core.tts import tts
-    resultat = tts().synthetiser(texte, langue=_LANGUE_COURANTE)
-    if interruptible:
-        _PARLE.set()      # a partir d'ici Jarvis parle : on peut l'interrompre
+    fournisseur = tts()
+    _hud("etat", "synthese")
+    debut = time.monotonic()
     try:
+        flux = fournisseur.synthetiser_en_flux(texte, langue=_LANGUE_COURANTE)
+        if flux is not None:
+            morceaux, frequence = flux
+            if _jouer_audio_en_flux(morceaux, frequence, interruptible):
+                LOG.info("TTS en flux termine en %.2fs", time.monotonic() - debut)
+                return
+
+        resultat = fournisseur.synthetiser(texte, langue=_LANGUE_COURANTE)
         if resultat is not None:
+            _hud("etat", "parole")
+            if interruptible:
+                _PARLE.set()
             _jouer_audio(*resultat)
         else:
+            _hud("etat", "parole")
+            if interruptible:
+                _PARLE.set()
             _dire_sapi(texte, _LANGUE_COURANTE)
     finally:
         _PARLE.clear()    # fin de la parole : plus d'interruption possible
@@ -665,7 +707,7 @@ def repondre(historique):
             b.text for b in reponse.content if getattr(b, "type", None) == "text"
         ).strip()
         historique.append({"role": "assistant", "content": texte})
-        _hud("etat", "parole")
+        _hud("etat", "synthese")
         if texte and not _INTERRUPTION.is_set():
             dire(texte)
         return texte

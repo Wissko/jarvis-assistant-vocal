@@ -19,6 +19,7 @@ choix pour le francais aujourd'hui.
 import json
 import logging
 import os
+import struct
 import subprocess
 import time
 import urllib.request
@@ -58,6 +59,10 @@ class ProviderTTS:
         """Renvoie (numpy int16 mono, frequence_hz) ou None si indisponible."""
         return None
 
+    def synthetiser_en_flux(self, texte, langue=None):
+        """Renvoie (iterateur_audio_int16, frequence_hz), si le provider sait diffuser."""
+        return None
+
 
 # --------------------------------------------------------------- Chatterbox
 
@@ -74,6 +79,8 @@ class ChatterboxProvider(ProviderTTS):
         self.voix_en = str(reglage("chatterbox.voix_en", "Henry.wav"))
         self.vitesse = float(reglage("chatterbox.vitesse", 1.08))
         self.seed = int(reglage("chatterbox.seed", 108))
+        self.taille_flux = max(50, min(500, int(
+            reglage("chatterbox.taille_flux", 50))))
         self.timeout = float(reglage("chatterbox.timeout", 120))
         self.demarrage_auto = bool(reglage("chatterbox.demarrage_auto", True))
         dossier = reglage("chatterbox.dossier", "../chatterbox-lowkey")
@@ -151,6 +158,64 @@ class ChatterboxProvider(ProviderTTS):
             return np.frombuffer(decode.samples, dtype=np.int16), 24000
         except Exception as e:
             print(f"  [Chatterbox] indisponible ({e}), repli voix Windows.")
+            return None
+
+    def synthetiser_en_flux(self, texte, langue=None):
+        """Diffuse le PCM des qu'un premier morceau Chatterbox est disponible.
+
+        Le serveur produit toujours chaque morceau en une passe, mais Lowkey n'attend
+        plus la generation de toute la reponse avant de commencer la lecture.
+        """
+        if not self.disponible() or not self._demarrer_si_necessaire():
+            return None
+        try:
+            import numpy as np
+            voix, code = self._parametres(langue)
+            charge = {
+                "text": texte,
+                "voice_mode": "predefined",
+                "predefined_voice_id": voix,
+                "output_format": "wav",
+                "split_text": True,
+                "chunk_size": self.taille_flux,
+                "speed_factor": self.vitesse,
+                "seed": self.seed,
+                "language": code,
+                "stream": True,
+            }
+            requete = urllib.request.Request(
+                f"{self.hote}/tts",
+                data=json.dumps(charge).encode("utf-8"), method="POST",
+                headers={"Content-Type": "application/json", "Accept": "audio/wav"})
+            reponse = urllib.request.urlopen(requete, timeout=self.timeout)
+
+            # Le WAV diffuse a une taille inconnue, mais son en-tete PCM reste standard.
+            entete = reponse.read(44)
+            if len(entete) != 44 or entete[:4] != b"RIFF" or entete[8:12] != b"WAVE":
+                reponse.close()
+                raise ValueError("flux WAV Chatterbox invalide")
+            frequence = struct.unpack("<I", entete[24:28])[0]
+
+            def morceaux():
+                reste = b""
+                try:
+                    while True:
+                        lire = getattr(reponse, "read1", reponse.read)
+                        bloc = lire(8192)
+                        if not bloc:
+                            break
+                        bloc = reste + bloc
+                        limite = len(bloc) - (len(bloc) % 2)
+                        if limite:
+                            # Copie necessaire : le tampon HTTP est reutilise ensuite.
+                            yield np.frombuffer(bloc[:limite], dtype="<i2").copy()
+                        reste = bloc[limite:]
+                finally:
+                    reponse.close()
+
+            return morceaux(), frequence
+        except Exception as e:
+            LOG.warning("flux Chatterbox indisponible: %s", e)
             return None
 
 
