@@ -615,9 +615,14 @@ def repondre(historique):
                 fil_accuse.join(timeout=2)
             return ""
         try:
+            schemas = registre.schemas_api(
+                local_seulement=(fournisseur.nom == "Ollama"))
+            if config.reglage("assistant.outils_dynamiques", True):
+                from core.tool_router import selectionner
+                schemas = selectionner(schemas, historique)
+            LOG.info("outils proposes au LLM : %d", len(schemas))
             reponse = fournisseur.repondre(
-                SYSTEME_COURANT, historique,
-                registre.schemas_api(local_seulement=(fournisseur.nom == "Ollama")))
+                SYSTEME_COURANT, historique, schemas)
         except Exception as e:
             print(f"  [{fournisseur.nom}] erreur : {e}")
             LOG.exception("appel LLM en echec")
@@ -1011,7 +1016,9 @@ def _tronquer(historique):
 def traiter(audio, whisper, historique, flux, reveil):
     """Transcrit, repond, parle. Renvoie True si on doit enchainer (relance)."""
     global _LANGUE_COURANTE
-    segments, info = whisper.transcribe(audio, language=LANGUE_WHISPER, beam_size=5)
+    segments, info = whisper.transcribe(
+        audio, language=LANGUE_WHISPER,
+        beam_size=int(config.reglage("whisper.beam_size", 1)))
     question = nettoyer(" ".join(s.text for s in segments).strip())
     detectee = getattr(info, "language", None)
     if detectee:

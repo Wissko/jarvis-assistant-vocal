@@ -21,7 +21,7 @@ codex:                         # modes hybride/qualite : abonnement ChatGPT, san
   executable: "codex"         # auto-detecte aussi le Codex inclus dans l'app Windows
   home: "logs/codex-home"      # OAuth Codex dedie a Jarvis (ignore par Git)
   modele: "auto"              # auto = meilleur modele disponible pour ton compte
-  reasoning_effort: "medium"  # low | medium | high | xhigh
+  reasoning_effort: "low"     # low = reflexes rapides ; medium/high = analyse complexe
   timeout: 180
   login_timeout: 180           # le navigateur s'ouvre au premier lancement
 
@@ -84,6 +84,7 @@ audio:
 whisper:
   modele: "medium"
   langue: null                 # null = detection automatique francais/anglais
+  beam_size: 1                 # 1 = rapide ; 5 = precision maximale mais plus lente
 
 interruption:                  # couper Jarvis quand tu dis "attends/stop/arrete" par-dessus
   facteur: 1.8                 # tu dois parler ~1.8x plus fort que l'echo de Jarvis (baisse si ca ne coupe pas)
@@ -94,6 +95,7 @@ interruption:                  # couper Jarvis quand tu dis "attends/stop/arrete
 assistant:
   nom: "Lowkey"
   phrase_activation: "Lowkey"
+  outils_dynamiques: true      # limite les outils envoyes au LLM selon la demande
   activation_whisper: true    # phrase personnalisee, 100 % locale
   activation_openwakeword: false # ancien « Hey Jarvis » desactive
   activation_seuil_parole: 0.003  # adapte aux micros Windows a faible gain
