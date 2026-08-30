@@ -145,7 +145,9 @@ SYSTEME_BASE = (
     "Tes reponses sont lues a voix haute : reponds en une a deux phrases courtes "
     "(idealement quinze mots maximum par phrase) "
     "(une seule si possible), sans listes, sans titres, sans asterisques ni emoji. "
-    "Reponds toujours dans la langue de la derniere demande : francais si elle est "
+    "Tu ne dois repondre qu'en francais ou en anglais, jamais dans une troisieme langue, "
+    "meme si une transcription vocale semble ecrite dans un autre alphabet. "
+    "Reponds dans la langue autorisee de la derniere demande : francais si elle est "
     "en francais, anglais si elle est en anglais. Va a l'essentiel. Ne pose jamais deux fois "
     "la meme question et ne redemande pas une confirmation deja demandee. "
     "Tu disposes d'outils pour agir sur l'ordinateur : utilise-les quand "
@@ -1148,9 +1150,31 @@ def traiter(audio, whisper, historique, flux, reveil):
         audio, language=LANGUE_WHISPER,
         beam_size=int(config.reglage("whisper.beam_size", 1)))
     question = nettoyer(" ".join(s.text for s in segments).strip())
-    detectee = getattr(info, "language", None)
-    if detectee:
-        _LANGUE_COURANTE = "en" if str(detectee).lower().startswith("en") else "fr"
+    detectee = str(getattr(info, "language", "") or "").lower()
+    alphabet_non_autorise = bool(re.search(
+        r"[\u0400-\u052f\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]", question))
+    if detectee.startswith("en") and not alphabet_non_autorise:
+        _LANGUE_COURANTE = "en"
+    elif detectee.startswith("fr") and not alphabet_non_autorise:
+        _LANGUE_COURANTE = "fr"
+    elif detectee or alphabet_non_autorise:
+        # Whisper peut halluciner du russe/chinois/etc. sur du bruit ou une phrase
+        # mal captee. On compare uniquement FR/EN, puis on retranscrit en imposant
+        # la meilleure des deux langues autorisees.
+        probabilites = dict(getattr(info, "all_language_probs", None) or [])
+        proba_fr = max((v for k, v in probabilites.items()
+                        if str(k).lower().startswith("fr")), default=0.0)
+        proba_en = max((v for k, v in probabilites.items()
+                        if str(k).lower().startswith("en")), default=0.0)
+        if proba_en or proba_fr:
+            _LANGUE_COURANTE = "en" if proba_en > proba_fr else "fr"
+        LOG.info("langue Whisper %s refusee ; nouvelle transcription forcee en %s",
+                 detectee, _LANGUE_COURANTE)
+        segments, _ = whisper.transcribe(
+            audio, language=_LANGUE_COURANTE,
+            beam_size=int(config.reglage("whisper.beam_size", 1)),
+            condition_on_previous_text=False)
+        question = nettoyer(" ".join(s.text for s in segments).strip())
 
     if not question or len(question) < 3:
         print("  (rien compris)\n")
