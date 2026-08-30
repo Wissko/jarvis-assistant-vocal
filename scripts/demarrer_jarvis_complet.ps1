@@ -28,10 +28,17 @@ $deja = Get-CimInstance Win32_Process -Filter "Name='python.exe' OR Name='python
 if ($deja) {
   Log "Jarvis vocal déjà lancé (PID $($deja.ProcessId -join ', ')) -> rien à faire"
 } else {
-  $uv = "$env:USERPROFILE\.local\bin\uv.exe"
-  if (-not (Test-Path $uv)) { $uv = "uv" }          # repli sur le PATH
-  Log "lancement du Jarvis vocal via $uv"
-  Start-Process $uv -ArgumentList "run","python","jarvis14.py" `
-    -WorkingDirectory $jarvis -WindowStyle Minimized
+  $pythonLocal = "$jarvis\.venv\Scripts\python.exe"
+  if (Test-Path $pythonLocal) {
+    Log "lancement du Jarvis vocal via son environnement local"
+    Start-Process $pythonLocal -ArgumentList "$jarvis\jarvis14.py" `
+      -WorkingDirectory $jarvis -WindowStyle Hidden
+  } else {
+    $uv = "$env:USERPROFILE\.local\bin\uv.exe"
+    if (-not (Test-Path $uv)) { $uv = "uv" }        # repli sur le PATH
+    Log "lancement du Jarvis vocal via $uv"
+    Start-Process $uv -ArgumentList "run","python","jarvis14.py" `
+      -WorkingDirectory $jarvis -WindowStyle Hidden
+  }
 }
 Log "=== fait ==="
