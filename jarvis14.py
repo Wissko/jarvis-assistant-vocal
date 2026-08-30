@@ -55,7 +55,7 @@ import sounddevice as sd
 from faster_whisper import WhisperModel
 from openwakeword.model import Model as WakeModel
 
-from core import config, interactions, journal, memoire, personnalite, registre, voix
+from core import config, interactions, journal, memoire, personnalite, registre, tbs, voix
 from core.activation import DetecteurActivationWhisper
 from core.util import sans_accents
 from tools.lumieres import allumer_si_nuit, charger_pieces_hue
@@ -158,7 +158,13 @@ SYSTEME_BASE = (
     "envoyer_mail quand l'utilisateur veut envoyer (le systeme demandera confirmation). "
     "Si la question fait reference a ce qui est affiche (qu'est-ce que c'est, lis "
     "ca, cette erreur, mon ecran, ce message), appelle capture_screen puis reponds "
-    "d'apres l'image."
+    "d'apres l'image. "
+    "Tu es aussi le conseiller business personnel de Yose. TBS Workspace est ta source "
+    "de vérité opérationnelle: fonde tes conseils sur ses données, distingue toujours "
+    "les faits des hypothèses, détecte les blocages et priorise trésorerie, ventes, "
+    "livraison client et récurrence. Pour une question business actuelle, appelle "
+    "tbs_brief avant de conseiller. Les écritures TBS passent uniquement par les outils "
+    "TBS et nécessitent sa confirmation."
 )
 
 # Consigne systeme courante (persona + regles + memoire). Passee a chaque appel
@@ -172,6 +178,8 @@ def _refaire_systeme(memoire_courante):
     persona = personnalite.persona(
         config.reglage("assistant.personnalite", personnalite.DEFAUT))
     SYSTEME_COURANT = (persona + "\n\n" + SYSTEME_BASE
+                       + tbs.contexte_statique()
+                       + tbs.contexte_dynamique()
                        + memoire.texte_pour_systeme(memoire_courante))
 
 

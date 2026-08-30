@@ -176,6 +176,7 @@ de contenus), `securite.toujours` (autorisations N2 mémorisées), `budget.prix`
 | **Reconnaissance musicale (Shazam-like)** | [docs/musique.md](docs/musique.md) |
 | **Spotify (playlist des musiques reconnues)** | [docs/spotify.md](docs/spotify.md) |
 | **Cockpit (tableau de bord perso, local)** | [docs/cockpit.md](docs/cockpit.md) |
+| **TBS Workspace (base business de Lowkey)** | [docs/tbs.md](docs/tbs.md) |
 | **Overlay de réponses (fenêtre flottante)** | [docs/overlay.md](docs/overlay.md) |
 | **Google Home / Nest** *(⚠️ expérimental)* | [docs/google_home.md](docs/google_home.md) |
 | **Alexa / Echo** *(via API non officielle)* | [docs/alexa.md](docs/alexa.md) |

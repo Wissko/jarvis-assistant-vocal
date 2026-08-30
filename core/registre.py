@@ -93,6 +93,7 @@ _NON_LOCAUX = {
     "lire_mails", "lire_mail", "preparer_mail", "envoyer_mail", "mettre_a_la_corbeille",
     "get_events", "create_event", "delete_event", "get_deadlines",
     "chercher_web",
+    "tbs_brief", "tbs_creer_tache", "tbs_ajouter_note",
     "book_appointment", "confirmer_reservation",
     "browser_open", "browser_current_page", "browser_tabs", "browser_close_tabs",
     "browser_interact",

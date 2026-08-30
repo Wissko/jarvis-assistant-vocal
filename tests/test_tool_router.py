@@ -6,7 +6,8 @@ from core.tool_router import selectionner
 SCHEMAS = [{"name": n} for n in (
     "remember", "recall", "forget", "allumer_lumiere", "changer_couleur",
     "lire_mails", "envoyer_mail", "browser_open", "chercher_web",
-    "ouvrir_application", "eteindre_pc", "get_system_stats")]
+    "ouvrir_application", "eteindre_pc", "get_system_stats", "tbs_brief",
+    "tbs_creer_tache", "tbs_ajouter_note")]
 
 
 class ToolRouterTests(unittest.TestCase):
@@ -25,6 +26,11 @@ class ToolRouterTests(unittest.TestCase):
 
     def test_action_ambigue_conserve_tous_les_outils(self):
         self.assertEqual(len(self.noms("Fais-le maintenant")), len(SCHEMAS))
+
+    def test_selectionne_tbs_pour_conseil_business(self):
+        noms = self.noms("Conseille-moi sur les priorités business de TBS")
+        self.assertIn("tbs_brief", noms)
+        self.assertNotIn("envoyer_mail", noms)
 
 
 if __name__ == "__main__":

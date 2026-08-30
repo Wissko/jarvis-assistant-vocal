@@ -350,6 +350,12 @@ cockpit:                       # tableau de bord perso (app web locale) ; docs/c
   navigateur: ""               # chemin chrome/edge ; vide = auto-detection
   # Donnees 100% locales dans finances/ (gitignore). Copie finances/abonnements.example.yaml
 
+tbs:                           # TBS Workspace = source de verite business de Lowkey
+  api_url: ""                  # ex. https://ton-tbs.vercel.app/api/lowkey
+  service_token: ""            # secret identique a LOWKEY_SERVICE_TOKEN cote TBS/Vercel
+  timeout: 6
+  cache_seconds: 45
+
 finances:                      # transactions (import CSV, puis PSD2) ; docs/cockpit.md
   dossier_csv: "finances/releves"   # depose ton export bancaire CSV ici -> "importe mon releve"
   taux_usd_eur: 0.92           # conversion $ -> € pour la detection d'abonnements par mail
