@@ -1,5 +1,27 @@
 # 🤖 Lowkey — assistant personnel vocal
 
+## Lire le projet en quelques minutes
+
+Lowkey est un projet personnel d'assistant vocal en Python. Pour examiner son implémentation :
+
+| Sujet | Point d'entrée |
+| --- | --- |
+| Extension par outils | [`core/registre.py`](core/registre.py) et [`tools/`](tools/) |
+| Intégration MCP | [`jarvis/mcp_server.py`](jarvis/mcp_server.py) |
+| Communication avec le backend Codex | [`core/codex_app_server.py`](core/codex_app_server.py) |
+| Tests ciblés | [`tests/test_activation.py`](tests/test_activation.py), [`tests/test_codex_app_server.py`](tests/test_codex_app_server.py), [`tests/test_tts_bilingue.py`](tests/test_tts_bilingue.py) |
+| Dépendances et configuration | [`pyproject.toml`](pyproject.toml), [`config.example.yaml`](config.example.yaml) |
+
+Les tests présents utilisent `unittest`. Dans un environnement où les dépendances du projet sont installées :
+
+```bash
+uv run python -m unittest discover -s tests -v
+```
+
+Ces tests couvrent des comportements ciblés ; ils ne valident pas à eux seuls les intégrations matérielles, les services externes ou l'ensemble du parcours vocal. Aucun workflow CI n'est actuellement versionné dans le dépôt.
+
+---
+
 *[English version](README.en.md)*
 
 ![Python](https://img.shields.io/badge/python-3.13-blue)
@@ -60,7 +82,7 @@ outils sûrs, écrit seulement des brouillons).
 
 ## 🎬 Démo
 
-> 📺 *Vidéo / GIF de démo à venir — placeholder.*
+Aucune vidéo de démonstration n’est publiée dans ce dépôt pour le moment. Les guides d’installation et les points d’entrée du code ci-dessus permettent d’explorer le projet.
 
 ## 🏗️ Architecture
 
